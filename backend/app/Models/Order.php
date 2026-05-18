@@ -19,6 +19,8 @@ class Order extends Model
         'status',
         'payment_status',
         'payment_method',
+        'payment_claimed_at',
+        'vnpay_txn_ref',
         'shipping_address',
         'notes',
         'cancel_reason',
@@ -48,6 +50,7 @@ class Order extends Model
         'shipping_fee'    => 'decimal:2',
         'cancelled_at' => 'datetime',
         'cancel_requested_at' => 'datetime',
+        'payment_claimed_at' => 'datetime',
         'is_user_cancelled' => 'boolean',
         'customer_account_detached_at' => 'datetime',
     ];

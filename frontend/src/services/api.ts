@@ -1,4 +1,10 @@
-import axios, { AxiosError, AxiosInstance, AxiosRequestConfig, InternalAxiosRequestConfig } from 'axios'
+import axios, {
+  AxiosError,
+  AxiosInstance,
+  AxiosRequestConfig,
+  AxiosResponse,
+  InternalAxiosRequestConfig,
+} from 'axios'
 import { toast } from 'sonner'
 
 interface CustomAxiosRequestConfig extends InternalAxiosRequestConfig {
@@ -10,7 +16,27 @@ interface CustomAxiosRequestConfig extends InternalAxiosRequestConfig {
 /** Cấu hình request mở rộng (dùng khi gọi api.get/post/...) */
 export type ApiRequestConfig = AxiosRequestConfig & Pick<CustomAxiosRequestConfig, 'skipNetworkErrorToast'>
 
-const api: AxiosInstance = axios.create({
+type ApiClient = AxiosInstance & {
+  get<T = unknown, D = unknown>(url: string, config?: ApiRequestConfig): Promise<AxiosResponse<T, D>>
+  post<T = unknown, D = unknown>(
+    url: string,
+    data?: D,
+    config?: ApiRequestConfig,
+  ): Promise<AxiosResponse<T, D>>
+  put<T = unknown, D = unknown>(
+    url: string,
+    data?: D,
+    config?: ApiRequestConfig,
+  ): Promise<AxiosResponse<T, D>>
+  patch<T = unknown, D = unknown>(
+    url: string,
+    data?: D,
+    config?: ApiRequestConfig,
+  ): Promise<AxiosResponse<T, D>>
+  delete<T = unknown, D = unknown>(url: string, config?: ApiRequestConfig): Promise<AxiosResponse<T, D>>
+}
+
+const api = axios.create({
   baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000/api',
   timeout: 15000,
   withCredentials: true,
@@ -113,4 +139,4 @@ api.interceptors.response.use(
   }
 )
 
-export default api
+export default api as ApiClient

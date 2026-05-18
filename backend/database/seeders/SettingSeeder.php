@@ -37,6 +37,12 @@ class SettingSeeder extends Seeder
             ['key' => 'meta_description', 'value' => 'Khám phá thực đơn phong phú tại HDG Food. Đặt món trực tuyến nhanh chóng.', 'group' => 'seo'],
             ['key' => 'google_analytics_id','value' => '',                                 'group' => 'seo'],
             ['key' => 'facebook_pixel_id','value' => '',                                   'group' => 'seo'],
+
+            // ── Thanh toán chuyển khoản (VietQR — Mức A) ──
+            ['key' => 'bank_bin',                  'value' => 'mbbank',                    'group' => 'payment'],
+            ['key' => 'bank_account',              'value' => '02092004281',               'group' => 'payment'],
+            ['key' => 'bank_account_name',         'value' => 'HDG FOOD',                  'group' => 'payment'],
+            ['key' => 'bank_transfer_note_prefix', 'value' => 'HDGFOOD',                   'group' => 'payment'],
         ];
 
         foreach ($settings as $setting) {

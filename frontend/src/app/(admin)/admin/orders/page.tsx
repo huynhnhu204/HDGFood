@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Search, RefreshCw, Eye, UtensilsCrossed, Plus, Pencil, Trash2, SlidersHorizontal, RotateCcw, Check, X } from 'lucide-react'
+import { Search, RefreshCw, Eye, UtensilsCrossed, Plus, Pencil, Trash2, SlidersHorizontal, RotateCcw, Check, X, Banknote } from 'lucide-react'
 import { toast } from 'sonner'
 import { orderService } from '@/services/order.service'
 import type { Order, OrderStatus } from '@/types'
@@ -21,6 +21,7 @@ const STATUS_CONFIG: Record<OrderStatus, { label: string; badge: string; dot: st
 }
 
 import StatusBadge from '@/components/StatusBadge'
+import AdminPaymentStatusBadge from '@/components/admin/AdminPaymentStatusBadge'
 import { motion, AnimatePresence } from 'framer-motion'
 
 const ORDER_PROGRESS_FLOW: OrderStatus[] = ['pending', 'confirmed', 'preparing', 'ready', 'serving', 'completed']
@@ -116,12 +117,14 @@ function ActionButtons({
   order,
   onDelete,
   onCompletePayment,
+  onConfirmTransferPayment,
   onApproveCancel,
   onRejectCancel,
 }: {
   order: Order
   onDelete: (order: Order) => void
   onCompletePayment: (order: Order) => void
+  onConfirmTransferPayment: (order: Order) => void
   onApproveCancel: (order: Order) => void
   onRejectCancel: (order: Order) => void
 }) {
@@ -170,10 +173,20 @@ function ActionButtons({
       >
         <Trash2 className="w-4 h-4" />
       </button>
-      {!['completed', 'cancelled'].includes(order.status) && order.table_number && (
+      {order.needs_payment_settlement && (
+        <button
+          onClick={() => onConfirmTransferPayment(order)}
+          title="Xác nhận đã nhận chuyển khoản"
+          className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-amber-500 text-white hover:bg-amber-600 shadow-sm transition-all border border-amber-400 font-bold text-[10px] uppercase tracking-wide"
+        >
+          <Banknote className="w-4 h-4 shrink-0" />
+          <span className="hidden xl:inline">Xác nhận CK</span>
+        </button>
+      )}
+      {!['completed', 'cancelled'].includes(order.status) && order.table_number && !order.needs_payment_settlement && (
         <button
           onClick={() => onCompletePayment(order)}
-          title="Xác nhận thanh toán"
+          title="Xác nhận thanh toán bàn"
           className="p-2 rounded-xl bg-emerald-50 text-emerald-600 hover:bg-emerald-500 hover:text-white hover:shadow-sm transition-all border border-emerald-100"
         >
           <span className="text-[11px] font-bold">₫</span>
@@ -192,6 +205,8 @@ export default function OrdersPage() {
   const [searchInput, setSearchInput] = useState('')
   const [search,      setSearch]      = useState('')
   const [showCancelRequests, setShowCancelRequests] = useState(false)
+  const [showPaymentPending, setShowPaymentPending] = useState(false)
+  const [paymentPendingTotal, setPaymentPendingTotal] = useState(0)
   const [statusQuickFilter, setStatusQuickFilter] = useState<OrderStatus | 'all'>('all')
   const [page,        setPage]        = useState(1)
   const [meta,        setMeta]        = useState({ current_page: 1, last_page: 1, total: 0 })
@@ -232,13 +247,26 @@ export default function OrdersPage() {
         page,
         per_page: 15,
         cancel_requests: showCancelRequests ? 1 : 0,
+        payment_pending: showPaymentPending ? 1 : 0,
       })
       setOrders(res.data)
       setMeta(res.meta)
     } finally {
       setLoading(false)
     }
-  }, [statusQuickFilter, search, page, showCancelRequests])
+  }, [statusQuickFilter, search, page, showCancelRequests, showPaymentPending])
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    if (params.get('payment_pending') === '1') setShowPaymentPending(true)
+  }, [])
+
+  useEffect(() => {
+    orderService
+      .getAll({ payment_pending: 1, per_page: 1 })
+      .then((res) => setPaymentPendingTotal(res.meta?.total ?? 0))
+      .catch(() => setPaymentPendingTotal(0))
+  }, [])
 
   useEffect(() => { fetchOrders() }, [fetchOrders])
 
@@ -277,6 +305,19 @@ export default function OrdersPage() {
       fetchOrders()
     } catch {
       toast.error('Xóa thất bại.')
+    }
+  }
+
+  const handleConfirmTransferPayment = async (order: Order) => {
+    const label = order.payment_claimed_at ? 'Khách đã báo chuyển khoản.' : 'Khách chưa bấm báo chuyển khoản.'
+    if (!confirm(`Xác nhận đã nhận tiền đơn #${order.id}?\n${label}`)) return
+    try {
+      const updated = await orderService.confirmPayment(order.id)
+      setOrders(prev => prev.map(o => o.id === order.id ? updated : o))
+      toast.success(`Đã xác nhận thanh toán đơn #${order.id}`)
+      setPaymentPendingTotal((n) => Math.max(0, n - 1))
+    } catch {
+      toast.error('Xác nhận thanh toán thất bại.')
     }
   }
 
@@ -349,6 +390,23 @@ export default function OrdersPage() {
           <p className="text-sm text-slate-500 mt-1">{loading ? 'Đang tải dữ liệu...' : `Tìm thấy tổng cộng ${meta.total} đơn`}</p>
         </div>
         <div className="flex items-center gap-2">
+          {paymentPendingTotal > 0 && (
+            <button
+              type="button"
+              onClick={() => {
+                setShowPaymentPending(true)
+                setShowCancelRequests(false)
+                setPage(1)
+              }}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl border-2 border-amber-300 bg-amber-50 text-amber-800 text-sm font-bold hover:bg-amber-100 transition-colors"
+            >
+              <Banknote className="w-5 h-5" />
+              Đối soát CK
+              <span className="min-w-[22px] h-[22px] flex items-center justify-center rounded-full bg-amber-500 text-white text-[11px] font-black">
+                {paymentPendingTotal}
+              </span>
+            </button>
+          )}
           <button onClick={fetchOrders} disabled={loading}
             className="p-2.5 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 disabled:opacity-50 transition-colors shadow-sm">
             <RefreshCw className={`w-5 h-5 text-slate-600 ${loading ? 'animate-spin' : ''}`} />
@@ -360,6 +418,23 @@ export default function OrdersPage() {
           </button>
         </div>
       </div>
+
+      {showPaymentPending && (
+        <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <p className="text-sm font-bold text-amber-900">Hàng đợi đối soát (đơn cũ VietQR)</p>
+            <p className="text-xs text-amber-800 mt-0.5">
+              Chỉ đơn <strong>VietQR thủ công</strong> tạo trước đây. Đơn <strong>VNPay</strong> tự cập nhật «Đã thanh toán» — không cần «Xác nhận CK».
+            </p>
+          </div>
+          <Link
+            href="/admin/settings"
+            className="text-xs font-bold text-amber-900 underline hover:text-amber-700 shrink-0"
+          >
+            Cấu hình TK ngân hàng →
+          </Link>
+        </div>
+      )}
 
       <div className="bg-white rounded-2xl border border-slate-100 shadow-sm px-4 py-3 flex flex-wrap items-center gap-2">
         <span className="text-[11px] font-black uppercase tracking-wider text-slate-500">Tổng quan trạng thái:</span>
@@ -404,6 +479,7 @@ export default function OrdersPage() {
                 setSearchInput('')
                 setSearch('')
                 setShowCancelRequests(false)
+                setShowPaymentPending(false)
                 setPage(1)
               }}
               className="inline-flex items-center gap-1 rounded-xl bg-white px-2 py-1 text-[11px] font-semibold text-slate-500 border border-slate-200 hover:bg-slate-100 transition-colors"
@@ -424,6 +500,25 @@ export default function OrdersPage() {
               }`}
             >
               Yêu cầu hủy
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setShowPaymentPending(v => !v)
+                setPage(1)
+              }}
+              className={`inline-flex items-center gap-1 rounded-xl px-2 py-1 text-[11px] font-semibold border transition-colors ${
+                showPaymentPending
+                  ? 'bg-amber-50 text-amber-700 border-amber-200'
+                  : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-100'
+              }`}
+            >
+              VietQR chờ CK
+              {paymentPendingTotal > 0 && !showPaymentPending && (
+                <span className="ml-0.5 min-w-[18px] h-[18px] inline-flex items-center justify-center rounded-full bg-amber-500 text-white text-[10px] font-black">
+                  {paymentPendingTotal}
+                </span>
+              )}
             </button>
           </div>
           <div className="relative flex-1 group">
@@ -449,6 +544,7 @@ export default function OrdersPage() {
                 <th className="px-8 py-5 text-left text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Mã Đơn / Ngày</th>
                 <th className="px-8 py-5 text-left text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Khách Hàng</th>
                 <th className="px-8 py-5 text-left text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Trạng Thái</th>
+                <th className="px-8 py-5 text-left text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Thanh Toán</th>
                 <th className="px-8 py-5 text-right text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Tổng Tiền</th>
                 <th className="px-8 py-5 text-center text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] w-40">Thao Tác</th>
               </tr>
@@ -457,14 +553,14 @@ export default function OrdersPage() {
               {loading ? (
                 Array.from({ length: 6 }).map((_, i) => (
                   <tr key={i}>
-                    {Array.from({ length: 5 }).map((_, j) => (
+                    {Array.from({ length: 6 }).map((_, j) => (
                       <td key={j} className="px-8 py-6"><div className="h-5 bg-slate-100/60 rounded-full animate-pulse w-full"></div></td>
                     ))}
                   </tr>
                 ))
               ) : sortedOrders.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="text-center py-24 text-slate-300">
+                  <td colSpan={6} className="text-center py-24 text-slate-300">
                     <span className="text-5xl block mb-4 opacity-20">🍽️</span>
                     <p className="text-sm font-black uppercase tracking-widest">Không tìm thấy đơn hàng nào</p>
                   </td>
@@ -472,12 +568,13 @@ export default function OrdersPage() {
               ) : sortedOrders.map(order => {
                 const cancelMinutesAgo = getMinutesAgo(order.cancel_requested_at)
                 const isUrgentCancel = Boolean(order.cancel_requested_at) && order.status === 'preparing'
+                const needsPayment = Boolean(order.needs_payment_settlement)
                 return (
                 <motion.tr
                   key={order.id}
                   whileHover={{ backgroundColor: 'rgba(248, 250, 252, 0.9)' }}
                   transition={{ duration: 0.2, ease: 'easeOut' }}
-                  className={`transition-colors ${isUrgentCancel ? 'bg-red-50/60 animate-pulse' : ''}`}
+                  className={`transition-colors ${isUrgentCancel ? 'bg-red-50/60 animate-pulse' : ''} ${needsPayment ? 'bg-amber-50/40 ring-1 ring-inset ring-amber-200' : ''}`}
                 >
                   <td className="px-8 py-5">
                     <span className="font-semibold text-slate-900 text-sm tracking-tight">#{order.id}</span>
@@ -520,6 +617,9 @@ export default function OrdersPage() {
                   <td className="px-8 py-5">
                     <StatusSelect order={order} loading={updating === order.id} onUpdate={handleStatusUpdate} />
                   </td>
+                  <td className="px-8 py-5">
+                    <AdminPaymentStatusBadge order={order} />
+                  </td>
                   <td className="px-8 py-5 text-right">
                     <span className="text-lg font-extrabold text-[#ed2a2a] tracking-tight">{order.total_price_formatted}</span>
                   </td>
@@ -528,6 +628,7 @@ export default function OrdersPage() {
                       order={order}
                       onDelete={handleDelete}
                       onCompletePayment={handleCompletePayment}
+                      onConfirmTransferPayment={handleConfirmTransferPayment}
                       onApproveCancel={handleApproveCancel}
                       onRejectCancel={handleRejectCancel}
                     />
@@ -556,8 +657,11 @@ export default function OrdersPage() {
           ) : sortedOrders.map((order) => {
             const cancelMinutesAgo = getMinutesAgo(order.cancel_requested_at)
             const isUrgentCancel = Boolean(order.cancel_requested_at) && order.status === 'preparing'
+            const needsPayment = Boolean(order.needs_payment_settlement)
             return (
-            <div key={order.id} className={`bg-white rounded-2xl border border-slate-200 shadow-sm flex flex-col overflow-hidden relative ${isUrgentCancel ? 'ring-1 ring-red-200 bg-red-50/40' : ''}`}>
+            <div key={order.id} className={`bg-white rounded-2xl border shadow-sm flex flex-col overflow-hidden relative ${
+              needsPayment ? 'border-amber-300 ring-2 ring-amber-100' : 'border-slate-200'
+            } ${isUrgentCancel ? 'ring-1 ring-red-200 bg-red-50/40' : ''}`}>
               
               {/* Vạch màu đỏ mảnh bên trái card tạo điểm nhấn */}
               <div className="absolute top-0 bottom-0 left-0 w-1 bg-[#ed2a2a] opacity-80"></div>
@@ -626,6 +730,11 @@ export default function OrdersPage() {
                 </div>
               )}
 
+              <div className="mx-6 mb-3 flex items-center justify-between gap-2">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Thanh toán</span>
+                <AdminPaymentStatusBadge order={order} />
+              </div>
+
               {/* Card Footer: Status Select & Actions */}
               <div className="p-4 pl-6 border-t border-slate-100 bg-slate-50/50 flex flex-col sm:flex-row sm:items-center gap-4">
                  <div className="w-full flex-1">
@@ -633,20 +742,15 @@ export default function OrdersPage() {
                  </div>
                  
                  <div className="flex items-center justify-between sm:justify-end gap-2 shrink-0">
-                    <span className="text-[11px] font-medium text-slate-400 sm:hidden">Cập nhật ngay</span>
-                    <div className="flex items-center gap-2">
-                       <Link href={`/admin/orders/${order.id}`} className="px-4 py-2.5 sm:px-3 rounded-xl bg-white border border-slate-200 text-slate-600 shadow-sm flex items-center justify-center font-bold text-xs"><Eye className="w-4 h-4" /></Link>
-                       {!['completed', 'cancelled'].includes(order.status) && (
-                         <Link href={`/admin/orders/${order.id}/edit`} className="px-4 py-2.5 sm:px-3 rounded-xl bg-blue-50 border border-blue-100 text-blue-600 shadow-sm flex items-center justify-center"><Pencil className="w-4 h-4" /></Link>
-                       )}
-                       <button onClick={() => handleDelete(order)} className="px-4 py-2.5 sm:px-3 rounded-xl bg-red-50 border border-red-100 text-red-500 shadow-sm flex items-center justify-center"><Trash2 className="w-4 h-4" /></button>
-                       {order.cancel_requested_at && !['cancelled', 'completed'].includes(order.status) && (
-                        <>
-                          <button onClick={() => handleApproveCancel(order)} className="px-4 py-2.5 sm:px-3 rounded-xl bg-emerald-50 border border-emerald-100 text-emerald-600 shadow-sm flex items-center justify-center"><Check className="w-4 h-4" /></button>
-                          <button onClick={() => handleRejectCancel(order)} className="px-4 py-2.5 sm:px-3 rounded-xl bg-red-50 border border-red-100 text-red-600 shadow-sm flex items-center justify-center"><X className="w-4 h-4" /></button>
-                        </>
-                       )}
-                    </div>
+                    <span className="text-[11px] font-medium text-slate-400 sm:hidden">Thao tác</span>
+                    <ActionButtons
+                      order={order}
+                      onDelete={handleDelete}
+                      onCompletePayment={handleCompletePayment}
+                      onConfirmTransferPayment={handleConfirmTransferPayment}
+                      onApproveCancel={handleApproveCancel}
+                      onRejectCancel={handleRejectCancel}
+                    />
                  </div>
               </div>
 

@@ -177,11 +177,15 @@ class OmsService
 
                 if ($openOrder) {
                     $openOrder->items()->createMany($items);
-                    $openOrder->update([
+                    $appendUpdates = [
                         'total' => (float) $openOrder->total + $subtotal,
                         'final_total' => (float) $openOrder->final_total + $totalPrice,
                         'notes' => $data['note'] ?? $openOrder->notes,
-                    ]);
+                    ];
+                    if (! empty($data['payment_method'])) {
+                        $appendUpdates['payment_method'] = $data['payment_method'];
+                    }
+                    $openOrder->update($appendUpdates);
 
                     $table->update([
                         'status' => 'occupied',

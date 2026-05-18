@@ -5,11 +5,12 @@ import {
   Settings, Save, Loader2, Building2, Phone, Globe2,
   Share2, Search, Image as ImageIcon, X, Upload,
   Mail, MapPin, Clock, Facebook, Instagram, Youtube,
-  BarChart3, Type, FileText, ChevronDown, CheckCircle,
+  BarChart3, Type, FileText, ChevronDown, CheckCircle, CreditCard,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { settingService } from '@/services/setting.service'
 import Image from 'next/image'
+import { buildVietQrUrl, buildTransferReference } from '@/lib/vietqr'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL?.replace('/api', '') ?? 'http://localhost:8000'
 
@@ -19,6 +20,7 @@ const TABS = [
   { id: 'contact', label: 'Liên hệ',         icon: Phone },
   { id: 'social',  label: 'Mạng xã hội',     icon: Share2 },
   { id: 'seo',     label: 'Cấu hình Web',    icon: Globe2 },
+  { id: 'payment', label: 'Thanh toán',      icon: CreditCard },
 ] as const
 
 type TabId = typeof TABS[number]['id']
@@ -52,6 +54,12 @@ const FIELDS: Record<TabId, { key: string; label: string; type: 'text' | 'textar
     { key: 'meta_description',   label: 'Meta Description',        type: 'textarea', placeholder: 'Mô tả hiển thị trên Google...', icon: Search },
     { key: 'google_analytics_id',label: 'Google Analytics ID',     type: 'text',     placeholder: 'G-XXXXXXXXXX',               icon: BarChart3 },
     { key: 'facebook_pixel_id',  label: 'Facebook Pixel ID',       type: 'text',     placeholder: '123456789',                  icon: Facebook },
+  ],
+  payment: [
+    { key: 'bank_bin',                  label: 'Mã ngân hàng (VietQR)',     type: 'text', placeholder: 'mbbank, vcb, tpb...',        icon: Type },
+    { key: 'bank_account',              label: 'Số tài khoản',             type: 'text', placeholder: '0123456789',                 icon: Type },
+    { key: 'bank_account_name',         label: 'Tên chủ tài khoản',        type: 'text', placeholder: 'HDG FOOD',                   icon: Type },
+    { key: 'bank_transfer_note_prefix', label: 'Tiền tố nội dung CK',      type: 'text', placeholder: 'HDGFOOD',                    icon: Type },
   ],
 }
 
@@ -349,6 +357,57 @@ export default function SettingsPage() {
                 </div>
               )
             })}
+
+            {/* ── VietQR preview (Payment tab) ── */}
+            {activeTab === 'payment' && (
+              <div className="space-y-4 pt-4 border-t border-slate-100">
+                <div className="rounded-xl border border-sky-100 bg-sky-50 px-4 py-3 text-xs text-sky-900 leading-relaxed">
+                  <p className="font-bold mb-1">Hướng dẫn cấu hình (Mức A — VietQR)</p>
+                  <ul className="list-disc pl-4 space-y-1">
+                    <li><strong>Mã ngân hàng</strong>: tên viết tắt VietQR (vd. <code className="bg-white/80 px-1 rounded">mbbank</code>, <code className="bg-white/80 px-1 rounded">vcb</code>).</li>
+                    <li><strong>Tiền tố nội dung CK</strong>: khách chuyển kèm mã đơn, vd. <code className="bg-white/80 px-1 rounded">HDGFOOD123</code>.</li>
+                    <li>Sau khi lưu, khách chọn «Chuyển khoản» ở checkout sẽ thấy QR và thông tin TK.</li>
+                  </ul>
+                </div>
+                {(() => {
+                  const bin = (values.bank_bin || '').trim()
+                  const account = (values.bank_account || '').trim()
+                  const previewRef = buildTransferReference(values.bank_transfer_note_prefix || 'HDGFOOD', 'PREVIEW', '0')
+                  const qrUrl = buildVietQrUrl(
+                    {
+                      bank_bin: bin,
+                      bank_account: account,
+                      bank_account_name: values.bank_account_name || 'HDG FOOD',
+                    },
+                    100000,
+                    previewRef,
+                  )
+                  if (!bin || !account) {
+                    return (
+                      <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
+                        Nhập mã ngân hàng và số tài khoản để xem trước mã VietQR.
+                      </p>
+                    )
+                  }
+                  if (!qrUrl) return null
+                  return (
+                    <div className="flex flex-col sm:flex-row gap-5 items-start">
+                      <div className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm shrink-0">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={qrUrl} alt="Xem trước VietQR" className="w-44 h-44 object-contain" />
+                      </div>
+                      <div className="text-sm space-y-2 text-slate-700">
+                        <p><span className="text-slate-400">Chủ TK:</span> <strong>{values.bank_account_name || '—'}</strong></p>
+                        <p><span className="text-slate-400">STK:</span> <strong>{account}</strong></p>
+                        <p><span className="text-slate-400">Ngân hàng:</span> <strong>{bin}</strong></p>
+                        <p><span className="text-slate-400">Nội dung mẫu:</span> <strong className="font-mono text-xs">{previewRef}</strong></p>
+                        <p className="text-[11px] text-slate-500">Ảnh mẫu 100.000đ — QR thật trên đơn sẽ khớp số tiền đơn hàng.</p>
+                      </div>
+                    </div>
+                  )
+                })()}
+              </div>
+            )}
 
             {/* ── Google Maps Preview (Contact tab) ── */}
             {activeTab === 'contact' && values['google_maps_embed'] && (

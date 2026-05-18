@@ -231,6 +231,11 @@ export interface Order {
   voucher_discount_formatted: string
   voucher_code?: string
   payment_method?: PaymentMethod | string
+  payment_status?: 'unpaid' | 'paid' | 'refunded'
+  payment_status_label?: string
+  payment_claimed_at?: string | null
+  is_online_transfer?: boolean
+  needs_payment_settlement?: boolean
   total_price: number
   total_price_formatted: string
   total_cost?: number

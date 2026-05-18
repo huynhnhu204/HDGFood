@@ -16,7 +16,11 @@ import api from '@/services/api'
 import { toast } from 'sonner'
 import { motion, AnimatePresence } from 'framer-motion'
 import { voucherService } from '@/services/voucher.service'
-import type { Voucher, PaymentMethod } from '@/types'
+import type { Voucher } from '@/types'
+import type { CheckoutPaymentMethod } from '@/lib/payment-flow'
+import { checkoutCtaLabel, DEFAULT_CHECKOUT_PAYMENT } from '@/lib/payment-flow'
+import { paymentService } from '@/services/payment.service'
+import PaymentMethodPicker from '@/components/payment/PaymentMethodPicker'
 import { tableService } from '@/services/table.service'
 import Pusher from 'pusher-js'
 
@@ -41,7 +45,7 @@ export default function CheckoutPage() {
   const [addressDetails, setAddressDetails] = useState<any>(null)
   const [note, setNote] = useState('')
   const [shippingMethod, setShippingMethod] = useState('standard') // standard | express
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cod')
+  const [paymentMethod, setPaymentMethod] = useState<CheckoutPaymentMethod>(DEFAULT_CHECKOUT_PAYMENT)
   const [voucherCode, setVoucherCode] = useState('')
   const [usePoints, setUsePoints] = useState(false)
   const [requestingPayment, setRequestingPayment] = useState(false)
@@ -266,6 +270,11 @@ export default function CheckoutPage() {
       }
     }
 
+    if (paymentMethod === 'vnpay' && total < 1000) {
+      toast.error('Số tiền tối thiểu 1.000đ để thanh toán VNPay.')
+      return
+    }
+
     setLoading(true)
 
     try {
@@ -337,14 +346,41 @@ export default function CheckoutPage() {
             paymentMethod,
           }
           window.sessionStorage.setItem(`order_bill_${orderId}`, JSON.stringify(orderBill))
+          const checkoutPhone = deliveryType === 'self' && user ? (user.phone || phone) : phone
+          if (checkoutPhone) {
+            window.sessionStorage.setItem(`order_checkout_phone_${orderId}`, checkoutPhone)
+          }
         }
       } catch {
         // Không chặn flow nếu lưu bill tạm thất bại
       }
       
+      const createdOrder = res?.data?.data as { id?: number; payment_method?: string } | undefined
+      const orderId = Number(createdOrder?.id)
+      const checkoutPhone = deliveryType === 'self' && user ? (user.phone || phone) : phone
+
+      if (paymentMethod === 'vnpay' && orderId) {
+        try {
+          const { payment_url } = await paymentService.createVnpayPayment(
+            orderId,
+            checkoutPhone || undefined,
+            Boolean(user),
+          )
+          clearCart()
+          toast.success('Chuyển sang cổng VNPay...')
+          window.location.href = payment_url
+          return
+        } catch (vnpayErr: unknown) {
+          const msg = (vnpayErr as { response?: { data?: { message?: string } } })?.response?.data?.message
+          toast.error('Không mở được VNPay', { description: msg || 'Kiểm tra cấu hình VNPAY trên server.' })
+          setLoading(false)
+          return
+        }
+      }
+
       clearCart()
       toast.success('Đặt hàng thành công!')
-      router.push(`/checkout/success?order_id=${res.data.data.id}&payment_method=${paymentMethod}&total=${total}`)
+      router.push(`/checkout/success?order_id=${orderId}&payment_method=${paymentMethod}&total=${total}`)
 
     } catch (error: any) {
       toast.error('Lỗi đặt hàng', { 
@@ -616,170 +652,7 @@ export default function CheckoutPage() {
                 <h2 className="text-sm font-black uppercase tracking-widest text-slate-900 flex items-center gap-2 border-b border-slate-50 pb-4">
                    <CreditCard className="w-4 h-4 text-blue-500" /> Thanh toán
                 </h2>
-                <div className="space-y-3">
-                   {/* COD */}
-                   <label className={`cursor-pointer p-4 rounded-2xl border-2 transition-all flex items-center justify-between ${paymentMethod === 'cod' ? 'border-emerald-500 bg-emerald-50/30' : 'border-slate-100 hover:border-slate-200'}`}>
-                      <div className="flex items-center gap-4">
-                         <input type="radio" className="hidden" name="payment" checked={paymentMethod === 'cod'} onChange={() => setPaymentMethod('cod')} />
-                         <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 ${paymentMethod === 'cod' ? 'border-emerald-500' : 'border-slate-300'}`}>
-                            {paymentMethod === 'cod' && <div className="w-2.5 h-2.5 bg-emerald-500 rounded-full" />}
-                         </div>
-                         <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 bg-emerald-100 text-emerald-600 rounded-xl flex items-center justify-center shrink-0"><Wallet className="w-5 h-5" /></div>
-                            <div>
-                               <h4 className="font-black text-sm text-slate-900 uppercase">Tiền mặt (COD)</h4>
-                               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tight">Thanh toán khi nhận hàng</p>
-                            </div>
-                         </div>
-                      </div>
-                   </label>
-
-                   {/* VNPay */}
-                   <label className={`cursor-pointer p-4 rounded-2xl border-2 transition-all flex items-center justify-between ${paymentMethod === 'vnpay' ? 'border-[#0071c1] bg-blue-50/30' : 'border-slate-100 hover:border-slate-200'}`}>
-                      <div className="flex items-center gap-4 flex-1">
-                         <input type="radio" className="hidden" name="payment" checked={paymentMethod === 'vnpay'} onChange={() => setPaymentMethod('vnpay')} />
-                         <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 ${paymentMethod === 'vnpay' ? 'border-[#0071c1]' : 'border-slate-300'}`}>
-                            {paymentMethod === 'vnpay' && <div className="w-2.5 h-2.5 bg-[#0071c1] rounded-full" />}
-                         </div>
-                         <div className="flex items-center gap-3 flex-1">
-                            <div className="w-10 h-10 bg-[#0071c1] rounded-xl flex items-center justify-center shrink-0 font-black text-white text-[10px]">
-                              VNPAY
-                            </div>
-                            <div className="flex-1">
-                               <div className="flex items-center gap-2">
-                                 <h4 className="font-black text-sm text-slate-900 uppercase">VNPay</h4>
-                                 <span className="px-2 py-0.5 bg-blue-100 text-blue-600 text-[9px] font-black uppercase rounded">Phổ biến</span>
-                               </div>
-                               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tight">Ví điện tử, ATM, Visa/Master</p>
-                            </div>
-                         </div>
-                      </div>
-                   </label>
-
-                   {/* MoMo */}
-                   <label className={`cursor-pointer p-4 rounded-2xl border-2 transition-all flex items-center justify-between ${paymentMethod === 'momo' ? 'border-[#a50064] bg-pink-50/30' : 'border-slate-100 hover:border-slate-200'}`}>
-                      <div className="flex items-center gap-4 flex-1">
-                         <input type="radio" className="hidden" name="payment" checked={paymentMethod === 'momo'} onChange={() => setPaymentMethod('momo')} />
-                         <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 ${paymentMethod === 'momo' ? 'border-[#a50064]' : 'border-slate-300'}`}>
-                            {paymentMethod === 'momo' && <div className="w-2.5 h-2.5 bg-[#a50064] rounded-full" />}
-                         </div>
-                         <div className="flex items-center gap-3 flex-1">
-                            <div className="w-10 h-10 bg-[#a50064] rounded-xl flex items-center justify-center shrink-0 font-black text-white text-[10px]">
-                              MoMo
-                            </div>
-                            <div className="flex-1">
-                               <div className="flex items-center gap-2">
-                                 <h4 className="font-black text-sm text-slate-900 uppercase">Ví MoMo</h4>
-                                 <span className="px-2 py-0.5 bg-pink-100 text-pink-600 text-[9px] font-black uppercase rounded">Nhanh</span>
-                               </div>
-                               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tight">Quét mã QR hoặc liên kết ví</p>
-                            </div>
-                         </div>
-                      </div>
-                   </label>
-
-                   {/* Chuyển khoản ngân hàng */}
-                   <label className={`cursor-pointer p-4 rounded-2xl border-2 transition-all flex items-center justify-between ${paymentMethod === 'bank' ? 'border-amber-500 bg-amber-50/30' : 'border-slate-100 hover:border-slate-200'}`}>
-                      <div className="flex items-center gap-4">
-                         <input type="radio" className="hidden" name="payment" checked={paymentMethod === 'bank'} onChange={() => setPaymentMethod('bank')} />
-                         <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 ${paymentMethod === 'bank' ? 'border-amber-500' : 'border-slate-300'}`}>
-                            {paymentMethod === 'bank' && <div className="w-2.5 h-2.5 bg-amber-500 rounded-full" />}
-                         </div>
-                         <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 bg-amber-100 text-amber-600 rounded-xl flex items-center justify-center shrink-0">
-                              <CreditCard className="w-5 h-5" />
-                            </div>
-                            <div>
-                               <h4 className="font-black text-sm text-slate-900 uppercase">Chuyển khoản ngân hàng</h4>
-                               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tight">Chuyển khoản trực tiếp qua STK</p>
-                            </div>
-                         </div>
-                      </div>
-                   </label>
-                </div>
-
-                {/* Payment Instructions */}
-                <AnimatePresence mode="wait">
-                  {paymentMethod === 'vnpay' && (
-                    <motion.div
-                      initial={{ opacity: 0, height: 0 }}
-                      animate={{ opacity: 1, height: 'auto' }}
-                      exit={{ opacity: 0, height: 0 }}
-                      className="p-4 bg-blue-50 border border-blue-100 rounded-xl"
-                    >
-                      <p className="text-xs font-bold text-blue-700 mb-2 uppercase">Hướng dẫn thanh toán VNPay:</p>
-                      <ul className="text-[11px] text-blue-600 space-y-1 font-medium">
-                        <li>• Sau khi đặt hàng, bạn sẽ được chuyển đến cổng thanh toán VNPay</li>
-                        <li>• Chọn phương thức: Ví điện tử, ATM, hoặc thẻ quốc tế</li>
-                        <li>• Hoàn tất thanh toán trong 15 phút</li>
-                      </ul>
-                    </motion.div>
-                  )}
-                  {paymentMethod === 'momo' && (
-                    <motion.div
-                      initial={{ opacity: 0, height: 0 }}
-                      animate={{ opacity: 1, height: 'auto' }}
-                      exit={{ opacity: 0, height: 0 }}
-                      className="p-4 bg-pink-50 border border-pink-100 rounded-xl"
-                    >
-                      <p className="text-xs font-bold text-pink-700 mb-2 uppercase">Hướng dẫn thanh toán MoMo:</p>
-                      <ul className="text-[11px] text-pink-600 space-y-1 font-medium">
-                        <li>• Mở ứng dụng MoMo trên điện thoại</li>
-                        <li>• Quét mã QR hoặc nhập mã thanh toán</li>
-                        <li>• Xác nhận và hoàn tất giao dịch</li>
-                      </ul>
-                    </motion.div>
-                  )}
-                  {paymentMethod === 'bank' && (
-                    <motion.div
-                      initial={{ opacity: 0, height: 0 }}
-                      animate={{ opacity: 1, height: 'auto' }}
-                      exit={{ opacity: 0, height: 0 }}
-                      className="p-4 bg-amber-50 border border-amber-100 rounded-xl"
-                    >
-                      <p className="text-xs font-bold text-amber-700 mb-2 uppercase">Thông tin chuyển khoản:</p>
-                      <div className="space-y-2 text-[11px] text-amber-700 font-bold">
-                        <div className="flex justify-between">
-                          <span>Ngân hàng:</span>
-                          <span className="text-slate-900">MB Bank</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span>Số tài khoản:</span>
-                          <span className="text-slate-900">02092004281</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span>Chủ tài khoản:</span>
-                          <span className="text-slate-900">DUONG DAO HUYNH NHU</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span>Số tiền:</span>
-                          <span className="text-[#ed2a2a] font-black">{total.toLocaleString()}đ</span>
-                        </div>
-                        <div className="flex flex-col gap-1 pt-2 border-t border-amber-200">
-                          <span>Nội dung chuyển khoản:</span>
-                          <div className="flex items-center gap-2">
-                            <span className="text-slate-900 bg-white px-3 py-2 rounded-lg font-black flex-1">
-                              HDG {(deliveryType === 'self' && user) ? user.phone : phone || '[SĐT]'}
-                            </span>
-                            <button
-                              onClick={() => {
-                                const content = `HDG ${(deliveryType === 'self' && user) ? user.phone : phone || ''}`
-                                navigator.clipboard.writeText(content)
-                                toast.success('Đã copy nội dung chuyển khoản!')
-                              }}
-                              className="px-3 py-2 bg-amber-600 text-white rounded-lg text-[10px] font-black uppercase hover:bg-amber-700 transition-colors"
-                            >
-                              Copy
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                      <p className="text-[10px] text-amber-600 mt-3 italic">
-                        * Vui lòng ghi đúng nội dung chuyển khoản để đơn hàng được xử lý nhanh chóng
-                      </p>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
+                <PaymentMethodPicker value={paymentMethod} onChange={setPaymentMethod} />
              </section>
 
           </div>
@@ -1034,7 +907,7 @@ export default function CheckoutPage() {
                   disabled={loading}
                   className="w-full h-16 bg-[#ed2a2a] text-white rounded-full text-sm font-black uppercase tracking-[0.2em] shadow-[0_12px_30px_rgba(237,42,42,0.45)] hover:brightness-110 transition-all active:scale-95 flex items-center justify-center disabled:opacity-70 disabled:pointer-events-none"
                 >
-                   {loading ? <Loader2 className="w-6 h-6 animate-spin" /> : 'Đặt hàng ngay'}
+                   {loading ? <Loader2 className="w-6 h-6 animate-spin" /> : checkoutCtaLabel(paymentMethod)}
                 </button>
                 {tableId && (
                   <button
@@ -1061,7 +934,7 @@ export default function CheckoutPage() {
                onClick={handleCheckout} disabled={loading}
                className="px-8 h-14 bg-[#ed2a2a] text-white rounded-2xl text-[11px] font-black uppercase tracking-[0.2em] shadow-xl shadow-red-500/20 active:scale-95 transition-all flex items-center justify-center min-w-[140px]"
             >
-               {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Đặt hàng'}
+               {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : checkoutCtaLabel(paymentMethod)}
             </button>
             {tableId && (
               <button

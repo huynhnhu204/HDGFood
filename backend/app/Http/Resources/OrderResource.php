@@ -4,6 +4,7 @@ namespace App\Http\Resources;
 
 use App\Models\User;
 use App\Support\OrderCancelPolicy;
+use App\Support\PaymentSupport;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -63,7 +64,17 @@ class OrderResource extends JsonResource
             'same_email_active_customer_exists' => $isAdmin ? $sameEmailActiveCustomer : false,
             'is_user_cancelled'     => (bool) $this->is_user_cancelled,
             'payment_status'        => $this->payment_status,
+            'payment_status_label'  => match ($this->payment_status) {
+                'paid' => 'Đã thanh toán',
+                'refunded' => 'Đã hoàn tiền',
+                default => PaymentSupport::needsManualSettlement($this->resource)
+                    ? ($this->payment_claimed_at ? 'Chờ đối soát' : 'Chưa thanh toán')
+                    : 'Chưa thanh toán',
+            },
             'payment_method'        => $this->payment_method,
+            'payment_claimed_at'    => $this->payment_claimed_at?->toDateTimeString(),
+            'is_online_transfer'    => PaymentSupport::isOnlineTransfer($this->payment_method),
+            'needs_payment_settlement' => PaymentSupport::needsManualSettlement($this->resource),
             'subtotal'              => $subtotal,
             'subtotal_formatted'    => number_format($subtotal, 0, ',', '.') . '₫',
             'promotion_discount'    => 0,

@@ -69,8 +69,10 @@ export default function Footer() {
       ;(async () => {
         try {
           const [settingsRes, policiesRes] = await Promise.allSettled([
-            api.get('/public/settings', { skipNetworkErrorToast: true }),
-            api.get('/policies', { skipNetworkErrorToast: true }),
+            api.get<{ data: Record<string, string> }>('/public/settings', { skipNetworkErrorToast: true }),
+            api.get<{ data: Array<{ title: string; slug: string; order?: number }> }>('/policies', {
+              skipNetworkErrorToast: true,
+            }),
           ])
 
           let nextSettings: any = null

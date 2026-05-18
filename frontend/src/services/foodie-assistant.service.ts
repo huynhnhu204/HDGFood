@@ -110,11 +110,11 @@ function unwrapFoodieChatResponse(body: unknown): FoodieChatResponse {
   }
   const o = body as Record<string, unknown>
   if (typeof o.reply === 'string') {
-    return o as FoodieChatResponse
+    return o as unknown as FoodieChatResponse
   }
   const inner = o.data
   if (inner && typeof inner === 'object' && typeof (inner as Record<string, unknown>).reply === 'string') {
-    return inner as FoodieChatResponse
+    return inner as unknown as FoodieChatResponse
   }
   throw new Error('Phản hồi Foodie AI thiếu trường reply')
 }

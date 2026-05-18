@@ -5,6 +5,9 @@ import Link from 'next/link'
 import { Package, Loader2, ChevronLeft, ChevronRight, ShoppingBag, Clock3, AlertCircle } from 'lucide-react'
 import { toast } from 'sonner'
 import { profileService } from '@/services/profile.service'
+import { paymentService } from '@/services/payment.service'
+import { needsTransferSettlement, isVnpayPayment } from '@/lib/payment-flow'
+import PaymentStatusChip from '@/components/payment/PaymentStatusChip'
 import type { Order, OrderStatus } from '@/types'
 
 const STATUS_MAP: Record<OrderStatus, { label: string; bg: string; text: string }> = {
@@ -78,6 +81,74 @@ export default function OrderHistory() {
     if (activeTab === 'cancelled') return orders.filter(o => o.status === 'cancelled')
     return orders.filter(o => o.status !== 'cancelled')
   }, [orders, activeTab])
+
+  const handleClaimPayment = async (order: Order) => {
+    setSubmitting(true)
+    try {
+      const res = await paymentService.claimPayment(order.id, order.customer_phone || undefined)
+      toast.success(res.message)
+      await loadOrders()
+    } catch (error: unknown) {
+      const msg = (error as { response?: { data?: { message?: string } } })?.response?.data?.message
+      toast.error(msg || 'Không gửi được xác nhận.')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  const handleVnpayPayment = async (order: Order) => {
+    setSubmitting(true)
+    try {
+      const { payment_url } = await paymentService.createVnpayPayment(order.id, undefined, true)
+      window.location.href = payment_url
+    } catch (error: unknown) {
+      const msg = (error as { response?: { data?: { message?: string } } })?.response?.data?.message
+      toast.error(msg || 'Không mở được VNPay.')
+      setSubmitting(false)
+    }
+  }
+
+  const renderPaymentActions = (order: Order) => {
+    if (order.payment_status === 'paid') return null
+    if (needsTransferSettlement(order)) {
+      return (
+        <div className="flex flex-col gap-1 items-center">
+          <Link
+            href={`/checkout/payment?order_id=${order.id}&payment_method=${order.payment_method || 'vnpay'}`}
+            className="inline-flex px-3 py-1 rounded-lg text-[11px] font-bold border border-[#ed2a2a] text-[#ed2a2a] hover:bg-red-50"
+          >
+            Quét VietQR
+          </Link>
+          {!order.payment_claimed_at && (
+            <button
+              type="button"
+              disabled={submitting}
+              onClick={() => handleClaimPayment(order)}
+              className="inline-flex px-3 py-1 rounded-lg text-[11px] font-bold border border-amber-300 text-amber-700 hover:bg-amber-50 disabled:opacity-50"
+            >
+              Đã chuyển khoản
+            </button>
+          )}
+          {order.payment_claimed_at && (
+            <span className="text-[10px] font-bold text-amber-600">Chờ đối soát</span>
+          )}
+        </div>
+      )
+    }
+    if (isVnpayPayment(order.payment_method)) {
+      return (
+        <button
+          type="button"
+          disabled={submitting}
+          onClick={() => handleVnpayPayment(order)}
+          className="inline-flex px-3 py-1 rounded-lg text-[11px] font-bold border border-blue-300 text-blue-700 hover:bg-blue-50 disabled:opacity-50"
+        >
+          Thanh toán VNPay
+        </button>
+      )
+    }
+    return null
+  }
 
   const handleCancel = async (order: Order, requestOnly = false) => {
     setSubmitting(true)
@@ -213,6 +284,15 @@ export default function OrderHistory() {
                               Hủy trong {formatDuration(Math.max(0, Number(order.cancel_policy.countdown_seconds)))}
                             </p>
                           )}
+                          <div className="flex flex-col gap-1.5 items-center">
+                            <PaymentStatusChip
+                              paymentMethod={order.payment_method}
+                              paymentStatus={order.payment_status}
+                              paymentClaimedAt={order.payment_claimed_at}
+                              compact
+                            />
+                            {renderPaymentActions(order)}
+                          </div>
                           {activeTab === 'active' && (canDirectCancel || canRequestManualNow) && (
                             <button
                               onClick={() => setModalOrder(order)}

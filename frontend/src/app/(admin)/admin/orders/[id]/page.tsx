@@ -7,6 +7,7 @@ import { ArrowLeft, Printer, Phone, MapPin, User, Clock, StickyNote, Mail } from
 import { toast } from 'sonner'
 import { orderService } from '@/services/order.service'
 import type { Order, OrderStatus } from '@/types'
+import AdminOrderPaymentCard from '@/components/admin/AdminOrderPaymentCard'
 
 const STATUS_CONFIG: Record<OrderStatus, { label: string; badge: string; dot: string; icon: string }> = {
   pending:   { label: 'Chờ xác nhận', icon: '🕐', badge: 'bg-amber-100 text-amber-700 border-amber-200',      dot: 'bg-amber-400' },
@@ -321,8 +322,10 @@ export default function OrderDetailPage() {
           </div>
         </div>
 
-        {/* Right: status */}
+        {/* Right: payment + status */}
         <div className="space-y-5">
+          <AdminOrderPaymentCard order={order} onUpdated={setOrder} />
+
           <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
             <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-wide mb-4">Tiến trình đơn hàng</h2>
 

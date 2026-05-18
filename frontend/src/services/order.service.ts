@@ -9,6 +9,7 @@ export const orderService = {
     page?: number
     per_page?: number
     cancel_requests?: 0 | 1
+    payment_pending?: 0 | 1
   }) {
     const { status, ...rest } = params ?? {}
     const res = await api.get<PaginatedResponse<Order>>('/admin/orders', {
@@ -73,6 +74,11 @@ export const orderService = {
     const res = await api.post<{ data: Order }>(`/admin/orders/${id}/cancel/reject`, {
       reject_reason_code: rejectReason,
     })
+    return res.data.data
+  },
+
+  async confirmPayment(id: number) {
+    const res = await api.post<{ data: Order }>(`/admin/orders/${id}/confirm-payment`)
     return res.data.data
   },
 

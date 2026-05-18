@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Resources\OrderResource;
 use App\Models\Order;
 use App\Services\OmsService;
+use App\Support\PaymentSupport;
 use Illuminate\Http\Request;
 use App\Models\User;
 
@@ -55,6 +56,12 @@ class OrderController extends Controller
         if ((int) $request->get('cancel_requests', 0) === 1) {
             $query->whereNotNull('cancel_requested_at')
                 ->whereNotIn('status', ['cancelled', 'completed']);
+        }
+
+        if ((int) $request->get('payment_pending', 0) === 1) {
+            $query->where('payment_status', 'unpaid')
+                ->whereIn('payment_method', PaymentSupport::MANUAL_TRANSFER_METHODS)
+                ->whereNotIn('status', ['cancelled']);
         }
 
         return OrderResource::collection(

@@ -94,6 +94,13 @@ Route::get('/policies/{slug}', [PolicyController::class, 'showBySlug']);
 Route::post('/assistant/foodie-chat', [FoodieAssistantController::class, 'chat']);
 Route::post('/assistant/shipping/estimate', [FoodieAssistantController::class, 'estimateShipping']);
 Route::get('/public/settings', [\App\Http\Controllers\SettingController::class, 'publicStorefront']);
+Route::get('/public/payment-info', [\App\Http\Controllers\PaymentController::class, 'publicInfo']);
+Route::get('/public/orders/{order}/payment-qr', [\App\Http\Controllers\PaymentController::class, 'publicQr']);
+Route::post('/public/orders/{order}/claim-payment', [\App\Http\Controllers\PaymentController::class, 'claimPayment']);
+Route::post('/public/orders/{order}/vnpay/create', [\App\Http\Controllers\VnPayController::class, 'createPayment']);
+Route::get('/payment/vnpay/return', [\App\Http\Controllers\VnPayController::class, 'returnUrl']);
+Route::get('/payment/vnpay/ipn', [\App\Http\Controllers\VnPayController::class, 'ipn']);
+Route::get('/public/orders/{order}/vnpay/status', [\App\Http\Controllers\VnPayController::class, 'checkStatus']);
 
 // Combos (Public)
 Route::get('/combos',               [ComboController::class, 'index']);
@@ -117,6 +124,10 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/orders/{order}', [OrderController::class, 'show']);
         Route::post('/orders',        [OrderController::class, 'store']);
         Route::post('/orders/{order}/cancel', [OrderController::class, 'cancelByUser']);
+        Route::post('/orders/{order}/claim-payment', [\App\Http\Controllers\PaymentController::class, 'claimPayment']);
+        Route::get('/orders/{order}/payment-qr', [\App\Http\Controllers\PaymentController::class, 'publicQr']);
+        Route::post('/orders/{order}/vnpay/create', [\App\Http\Controllers\VnPayController::class, 'createPayment']);
+        Route::get('/orders/{order}/vnpay/status', [\App\Http\Controllers\VnPayController::class, 'checkStatus']);
 
         // ── Reviews ──────────────────────────────────────────────────────────────
         Route::post('/reviews', [\App\Http\Controllers\ReviewController::class, 'store']);
@@ -188,6 +199,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::patch('/orders/{order}/status',      [OrderController::class, 'updateStatus']);
         Route::post('/orders/{order}/cancel/approve', [OrderController::class, 'approveCancelRequest']);
         Route::post('/orders/{order}/cancel/reject',  [OrderController::class, 'rejectCancelRequest']);
+        Route::post('/orders/{order}/confirm-payment', [\App\Http\Controllers\PaymentController::class, 'confirmPaymentAdmin']);
         Route::put('/orders/{order}',               [OrderController::class, 'update']);
         Route::delete('/orders/{order}',            [OrderController::class, 'destroy']);
 
