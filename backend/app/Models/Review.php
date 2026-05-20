@@ -3,9 +3,11 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Review extends Model
 {
+    use SoftDeletes;
     protected $fillable = [
         'user_id', 'product_id', 'rating', 'content', 'reply', 'images', 'is_approved', 'likes', 'is_featured', 'is_bought'
     ];

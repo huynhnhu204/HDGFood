@@ -5,6 +5,7 @@ import { Search, RefreshCw, Plus, Trash2, Pencil, Tag, GripVertical, X, Save, Ey
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { categoryService, type CategoryPayload } from '@/services/category.service'
+import AdminTrashTabs from '@/components/admin/AdminTrashTabs'
 import type { Category } from '@/types'
 
 // ── Main Page ─────────────────────────────────────────────────────────────
@@ -24,11 +25,18 @@ export default function CategoriesPage() {
   const [deleteTarget, setDeleteTarget] = useState<Category | null>(null)
   const [moveToCategoryId, setMoveToCategoryId] = useState<number | null>(null)
   const [deleting, setDeleting] = useState(false)
+  const [listTab, setListTab] = useState<'all' | 'trash'>('all')
 
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      const res = await categoryService.getAll({ search: search || undefined, status, per_page: perPage, page }) as any
+      const res = await categoryService.getAll({
+        search: search || undefined,
+        status: listTab === 'trash' ? undefined : status,
+        only_trashed: listTab === 'trash' ? 1 : undefined,
+        per_page: perPage,
+        page,
+      }) as any
       if (res.meta) {
         setCategories(res.data)
         setLastPage(res.meta.last_page)
@@ -38,7 +46,7 @@ export default function CategoriesPage() {
       }
     } catch { toast.error('Không tải được danh mục.') }
     finally { setLoading(false) }
-  }, [search, status, perPage, page])
+  }, [search, status, perPage, page, listTab])
 
   useEffect(() => { load() }, [load])
 
@@ -122,18 +130,24 @@ export default function CategoriesPage() {
 
   return (
     <div className="space-y-5">
+      <AdminTrashTabs active={listTab} onChange={setListTab} trashType="category" className="mb-1" />
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-slate-800">Danh mục</h1>
-          <p className="text-sm text-slate-500 mt-0.5">Quản lý danh mục sản phẩm</p>
+          <p className="text-sm text-slate-500 mt-0.5">
+            {listTab === 'trash' ? 'Thùng rác danh mục' : 'Quản lý danh mục sản phẩm'}
+          </p>
         </div>
+        {listTab === 'all' && (
         <button
           onClick={() => router.push('/admin/categories/create')}
           className="flex items-center gap-2 px-4 py-2 bg-[#ed2a2a] text-white rounded-xl text-sm font-medium hover:bg-red-600 shadow-sm transition-all active:scale-95"
         >
           <Plus className="w-4 h-4" /> Thêm danh mục
         </button>
+        )}
       </div>
 
       {/* Filters */}

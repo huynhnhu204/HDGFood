@@ -96,16 +96,12 @@ class OmsService
                 }
                 $product->decrement('stock', $item['quantity']);
 
-                $itemPrice = $product->price;
+                // Khớp giỏ FE (final_price đã gồm KM đang chạy)
+                $itemPrice = (float) $product->final_price;
                 $itemCostPrice = $product->cost_price ?? 0;
                 $itemSubtotal = $itemPrice * $item['quantity'];
                 $subtotal += $itemSubtotal;
                 $productIds[] = $product->id;
-
-                $promotion = $product->promotions()->active()->first();
-                if ($promotion) {
-                    $promotionDiscount += $promotion->calculateDiscount((float)$itemPrice, $item['quantity']);
-                }
 
                 $items[] = [
                     'item_type' => 'product',

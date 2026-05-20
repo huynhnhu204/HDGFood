@@ -6,8 +6,11 @@ use App\Models\Policy;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 
+use App\Http\Controllers\Concerns\AppliesAdminTrashIndex;
+
 class PolicyController extends Controller
 {
+    use AppliesAdminTrashIndex;
     public function index(Request $request)
     {
         $query = Policy::query()->where('is_active', true);
@@ -58,6 +61,8 @@ class PolicyController extends Controller
         if ($request->filled('is_active')) {
             $query->where('is_active', $request->boolean('is_active'));
         }
+
+        $this->applyAdminTrashIndexScope($query, $request);
 
         $policies = $query->orderBy('order')->orderByDesc('updated_at')->paginate((int) ($request->per_page ?? 15));
 

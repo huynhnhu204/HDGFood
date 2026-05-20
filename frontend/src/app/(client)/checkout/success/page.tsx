@@ -10,11 +10,14 @@ import PaymentTransferPanel from '@/components/payment/PaymentTransferPanel'
 import PaymentFlowSteps from '@/components/payment/PaymentFlowSteps'
 import PaymentStatusChip from '@/components/payment/PaymentStatusChip'
 import VnpayPayButton from '@/components/payment/VnpayPayButton'
-import { ENABLE_MANUAL_BANK_CHECKOUT } from '@/lib/payment-flow'
 import {
+  ENABLE_MANUAL_BANK_CHECKOUT,
   PAYMENT_METHOD_LABELS,
+  VNPAY_MIN_AMOUNT,
+  canUseVnpay,
   isManualTransferPayment,
   isVnpayPayment,
+  vnpayMinAmountMessage,
 } from '@/lib/payment-flow'
 
 interface OrderBillSnapshot {
@@ -38,6 +41,7 @@ function SuccessContent() {
   const isCod = paymentMethod === 'cod'
   const paymentLabel = PAYMENT_METHOD_LABELS[paymentMethod || ''] || 'COD'
   const displayTotal = Math.round(Number(billData?.total ?? total))
+  const vnpayEligible = canUseVnpay(displayTotal)
 
   useEffect(() => {
     const now = new Date()
@@ -79,7 +83,9 @@ function SuccessContent() {
             {isTransfer
               ? 'Đơn đã được tạo. Vui lòng chuyển khoản theo hướng dẫn bên dưới.'
               : isVnpay
-                ? 'Đơn đã tạo. Bấm nút bên dưới để thanh toán trên VNPay Sandbox (tự xác nhận).'
+                ? vnpayEligible
+                  ? 'Đơn đã tạo. Bấm nút bên dưới để thanh toán trên VNPay Sandbox (tự xác nhận).'
+                  : `Đơn đã tạo nhưng tổng dưới ${VNPAY_MIN_AMOUNT.toLocaleString('vi-VN')}đ — không thể thanh toán VNPay.`
                 : 'Cảm ơn bạn. Thanh toán khi nhận hàng (COD).'}
           </p>
 
@@ -163,8 +169,23 @@ function SuccessContent() {
             )}
             {isVnpay && orderId && (
               <div className="mt-4 space-y-4">
-                <PaymentFlowSteps currentStep={2} compact variant="vnpay" />
-                <VnpayPayButton orderId={Number(orderId)} customerPhone={customerPhone} />
+                <PaymentFlowSteps currentStep={vnpayEligible ? 2 : 1} compact variant="vnpay" />
+                {vnpayEligible ? (
+                  <VnpayPayButton orderId={Number(orderId)} customerPhone={customerPhone} />
+                ) : (
+                  <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-left space-y-3">
+                    <p className="text-xs font-bold text-amber-900">{vnpayMinAmountMessage()}</p>
+                    <p className="text-[11px] font-medium text-amber-800/90">
+                      Đơn #{orderId} hiện {displayTotal.toLocaleString('vi-VN')}đ. Thêm món và đặt đơn mới, hoặc liên hệ nhà hàng / thanh toán COD nếu được hỗ trợ.
+                    </p>
+                    <Link
+                      href="/checkout"
+                      className="inline-block w-full py-3 rounded-full bg-amber-600 text-white text-[11px] font-black uppercase tracking-widest text-center hover:bg-amber-700"
+                    >
+                      Đặt đơn mới (≥ {VNPAY_MIN_AMOUNT.toLocaleString('vi-VN')}đ)
+                    </Link>
+                  </div>
+                )}
               </div>
             )}
           </div>

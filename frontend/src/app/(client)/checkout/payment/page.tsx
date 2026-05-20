@@ -8,7 +8,12 @@ import Link from 'next/link'
 import { ArrowLeft, Receipt } from 'lucide-react'
 import PaymentTransferPanel from '@/components/payment/PaymentTransferPanel'
 import VnpayPayButton from '@/components/payment/VnpayPayButton'
-import { ENABLE_MANUAL_BANK_CHECKOUT } from '@/lib/payment-flow'
+import {
+  ENABLE_MANUAL_BANK_CHECKOUT,
+  VNPAY_MIN_AMOUNT,
+  canUseVnpay,
+  vnpayMinAmountMessage,
+} from '@/lib/payment-flow'
 
 function PaymentPageContent() {
   const searchParams = useSearchParams()
@@ -16,12 +21,24 @@ function PaymentPageContent() {
   const orderId = Number(searchParams.get('order_id') || 0)
   const method = searchParams.get('payment_method') || 'vnpay'
   const [customerPhone, setCustomerPhone] = useState('')
+  const [orderTotal, setOrderTotal] = useState<number | undefined>(undefined)
 
   useEffect(() => {
     if (!orderId) return
     const saved = window.sessionStorage.getItem(`order_checkout_phone_${orderId}`)
     if (saved) setCustomerPhone(saved)
+    try {
+      const raw = window.sessionStorage.getItem(`order_bill_${orderId}`)
+      if (raw) {
+        const parsed = JSON.parse(raw) as { total?: number }
+        if (parsed?.total != null) setOrderTotal(Math.round(Number(parsed.total)))
+      }
+    } catch {
+      setOrderTotal(undefined)
+    }
   }, [orderId])
+
+  const vnpayEligible = orderTotal === undefined || canUseVnpay(orderTotal)
 
   if (!orderId) {
     return (
@@ -60,13 +77,26 @@ function PaymentPageContent() {
             </p>
             <PaymentTransferPanel orderId={orderId} customerPhone={customerPhone} />
           </>
-        ) : (
+        ) : vnpayEligible ? (
           <>
             <p className="text-xs text-slate-500 mb-6 leading-relaxed">
               Thanh toán qua VNPay Sandbox. Sau khi thanh toán thành công, hệ thống tự cập nhật «Đã thanh toán» — không cần admin xác nhận.
             </p>
-            <VnpayPayButton orderId={orderId} customerPhone={customerPhone} />
+            <VnpayPayButton orderId={orderId} customerPhone={customerPhone} orderTotal={orderTotal} />
           </>
+        ) : (
+          <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 space-y-3">
+            <p className="text-xs font-bold text-amber-900">{vnpayMinAmountMessage()}</p>
+            {orderTotal != null && (
+              <p className="text-[11px] text-amber-800">Tổng đơn hiện {orderTotal.toLocaleString('vi-VN')}đ.</p>
+            )}
+            <Link
+              href="/checkout"
+              className="inline-block w-full py-3 rounded-full bg-amber-600 text-white text-[11px] font-black uppercase tracking-widest text-center"
+            >
+              Đặt đơn mới (≥ {VNPAY_MIN_AMOUNT.toLocaleString('vi-VN')}đ)
+            </Link>
+          </div>
         )}
       </div>
     </div>

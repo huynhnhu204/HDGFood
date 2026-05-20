@@ -12,9 +12,11 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
+use App\Http\Controllers\Concerns\AppliesAdminTrashIndex;
 
 class TableController extends Controller
 {
+    use AppliesAdminTrashIndex;
     public function available()
     {
         $tables = Table::query()
@@ -120,12 +122,17 @@ class TableController extends Controller
         ]);
     }
 
-    public function index()
+    public function index(Request $request)
     {
-        $tables = Table::with(['currentOrder' => function ($query) {
-            $query->select('id', 'final_total', 'status');
-        }])->orderBy('area')->orderBy('name')->get();
-        return response()->json($tables);
+        $query = Table::with(['currentOrder' => function ($q) {
+            $q->select('id', 'final_total', 'status');
+        }])->orderBy('area')->orderBy('name');
+
+        if ($request->user()?->isAdmin()) {
+            $this->applyAdminTrashIndexScope($query, $request);
+        }
+
+        return response()->json($query->get());
     }
 
     public function store(Request $request)

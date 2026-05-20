@@ -11,11 +11,22 @@ export interface CategoryPayload {
 }
 
 export const categoryService = {
-  async getAll(params?: { search?: string; status?: 'active' | 'hidden' | 'all'; per_page?: number; page?: number; position?: string }) {
+  async getAll(params?: {
+    search?: string
+    status?: 'active' | 'hidden' | 'all'
+    per_page?: number
+    page?: number
+    position?: string
+    only_trashed?: number | boolean
+  }) {
     try {
-      const { status, ...rest } = params ?? {}
+      const { status, only_trashed, ...rest } = params ?? {}
       const res = await api.get<PaginatedResponse<Category> | { data: Category[] }>('/admin/categories', {
-        params: { ...rest, ...(status && status !== 'all' ? { status } : {}) },
+        params: {
+          ...rest,
+          ...(only_trashed ? { only_trashed: 1 } : {}),
+          ...(status && status !== 'all' ? { status } : {}),
+        },
       })
       return res.data
     } catch (error) {

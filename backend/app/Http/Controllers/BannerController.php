@@ -7,8 +7,11 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Carbon\Carbon;
 
+use App\Http\Controllers\Concerns\AppliesAdminTrashIndex;
+
 class BannerController extends Controller
 {
+    use AppliesAdminTrashIndex;
     private const ALLOWED_POSITIONS = [
         'slider',
         'home_center',
@@ -45,6 +48,8 @@ class BannerController extends Controller
         if ($request->filled('search')) {
             $query->where('title', 'like', '%' . $request->search . '%');
         }
+
+        $this->applyAdminTrashIndexScope($query, $request);
 
         $banners = $query->orderBy('sort_order', 'asc')
                          ->orderBy('created_at', 'desc')

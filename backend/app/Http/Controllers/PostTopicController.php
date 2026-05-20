@@ -7,8 +7,12 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Schema;
 
+use App\Http\Controllers\Concerns\AppliesAdminTrashIndex;
+
 class PostTopicController extends Controller
 {
+    use AppliesAdminTrashIndex;
+
     public function index(Request $request)
     {
         $query = PostTopic::query()->orderBy('id', 'desc');
@@ -24,6 +28,8 @@ class PostTopicController extends Controller
         if (Schema::hasTable('posts')) {
             $query->withCount('posts');
         }
+
+        $this->applyAdminTrashIndexScope($query, $request);
 
         $perPage = $request->per_page ?? 20;
         $paginator = $query->paginate($perPage);

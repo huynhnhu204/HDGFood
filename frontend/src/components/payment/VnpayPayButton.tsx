@@ -5,12 +5,15 @@ import { CreditCard, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { paymentService } from '@/services/payment.service'
 import { useAuthStore } from '@/store/authStore'
+import { canUseVnpay, vnpayMinAmountMessage } from '@/lib/payment-flow'
 
 type Props = {
   orderId: number
   customerPhone?: string
   className?: string
   label?: string
+  /** Tổng đơn — nếu dưới mức tối thiểu VNPay thì nút bị vô hiệu */
+  orderTotal?: number
 }
 
 export default function VnpayPayButton({
@@ -18,11 +21,17 @@ export default function VnpayPayButton({
   customerPhone,
   className = '',
   label = 'Thanh toán VNPay Sandbox',
+  orderTotal,
 }: Props) {
   const { user } = useAuthStore()
   const [loading, setLoading] = useState(false)
+  const eligible = orderTotal === undefined || canUseVnpay(orderTotal)
 
   const handlePay = async () => {
+    if (!eligible) {
+      toast.error(vnpayMinAmountMessage())
+      return
+    }
     setLoading(true)
     try {
       const { payment_url } = await paymentService.createVnpayPayment(
@@ -42,7 +51,7 @@ export default function VnpayPayButton({
   return (
     <button
       type="button"
-      disabled={loading}
+      disabled={loading || !eligible}
       onClick={handlePay}
       className={
         className ||

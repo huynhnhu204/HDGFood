@@ -7,8 +7,12 @@ use App\Models\Voucher;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 
+use App\Http\Controllers\Concerns\AppliesAdminTrashIndex;
+
 class VoucherController extends Controller
 {
+    use AppliesAdminTrashIndex;
+
     public function index(Request $request)
     {
         $query = Voucher::query();
@@ -34,6 +38,8 @@ class VoucherController extends Controller
                 });
             }
         }
+
+        $this->applyAdminTrashIndexScope($query, $request);
 
         return VoucherResource::collection(
             $query->latest()->paginate(min((int) $request->get('per_page', 15), 100))

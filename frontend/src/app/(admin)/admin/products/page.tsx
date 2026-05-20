@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { Search, RefreshCw, Plus, Trash2, Pencil, Package, Copy, Eye, Filter, Upload } from 'lucide-react'
 import { toast } from 'sonner'
 import { productService } from '@/services/product.service'
+import AdminTrashTabs from '@/components/admin/AdminTrashTabs'
 import api from '@/services/api'
 import type { Category, Product } from '@/types'
 import * as XLSX from 'xlsx'
@@ -35,6 +36,7 @@ export default function ProductsPage() {
   const [selected, setSelected] = useState<Set<number>>(new Set())
   const [bulkLoading, setBulkLoading] = useState(false)
   const [viewMode, setViewMode] = useState<'table' | 'grid'>('grid')
+  const [listTab, setListTab] = useState<'all' | 'trash'>('all')
   const [importLoading, setImportLoading] = useState(false)
   const excelInputRef = useRef<HTMLInputElement>(null)
 
@@ -45,9 +47,12 @@ export default function ProductsPage() {
         search: search || undefined,
         category: catFilter || undefined,
         page,
+        paginate: 20,
       }
-      
-      if (statusFilter !== 'all') {
+
+      if (listTab === 'trash') {
+        params.only_trashed = 1
+      } else if (statusFilter !== 'all') {
         params.is_active = statusFilter === 'active' ? 1 : 0
       }
       
@@ -69,7 +74,7 @@ export default function ProductsPage() {
       setLastPage(res.meta.last_page)
     } catch { toast.error('Không tải được danh sách sản phẩm.') }
     finally { setLoading(false) }
-  }, [search, catFilter, statusFilter, stockFilter, priceSort, page])
+  }, [search, catFilter, statusFilter, stockFilter, priceSort, page, listTab])
 
   useEffect(() => { load() }, [load])
   useEffect(() => {
@@ -177,11 +182,14 @@ export default function ProductsPage() {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
+        <div className="space-y-3">
+          <AdminTrashTabs active={listTab} onChange={setListTab} trashType="product" />
+          <div>
           <h1 className="text-2xl font-black text-slate-900 tracking-tight">Quản lý Sản phẩm</h1>
           <p className="text-sm text-slate-500 mt-0.5">
-            {products.length > 0 && <span className="font-semibold text-slate-700">{products.length}</span>} sản phẩm trong danh mục
+            {products.length > 0 && <span className="font-semibold text-slate-700">{products.length}</span>} sản phẩm{listTab === 'trash' ? ' trong thùng rác' : ''}
           </p>
+          </div>
         </div>
         <div className="flex items-center gap-2">
           <input

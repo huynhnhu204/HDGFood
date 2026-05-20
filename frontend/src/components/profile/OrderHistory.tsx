@@ -6,7 +6,13 @@ import { Package, Loader2, ChevronLeft, ChevronRight, ShoppingBag, Clock3, Alert
 import { toast } from 'sonner'
 import { profileService } from '@/services/profile.service'
 import { paymentService } from '@/services/payment.service'
-import { needsTransferSettlement, isVnpayPayment } from '@/lib/payment-flow'
+import {
+  needsTransferSettlement,
+  isVnpayPayment,
+  canUseVnpay,
+  VNPAY_MIN_AMOUNT,
+  vnpayMinAmountMessage,
+} from '@/lib/payment-flow'
 import PaymentStatusChip from '@/components/payment/PaymentStatusChip'
 import type { Order, OrderStatus } from '@/types'
 
@@ -97,6 +103,10 @@ export default function OrderHistory() {
   }
 
   const handleVnpayPayment = async (order: Order) => {
+    if (!canUseVnpay(order.total_price)) {
+      toast.error(vnpayMinAmountMessage())
+      return
+    }
     setSubmitting(true)
     try {
       const { payment_url } = await paymentService.createVnpayPayment(order.id, undefined, true)
@@ -136,6 +146,16 @@ export default function OrderHistory() {
       )
     }
     if (isVnpayPayment(order.payment_method)) {
+      if (!canUseVnpay(order.total_price)) {
+        return (
+          <span
+            className="text-[10px] font-bold text-amber-700 max-w-[9rem] text-center leading-tight"
+            title={vnpayMinAmountMessage()}
+          >
+            VNPay từ {VNPAY_MIN_AMOUNT.toLocaleString('vi-VN')}đ
+          </span>
+        )
+      }
       return (
         <button
           type="button"

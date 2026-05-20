@@ -12,6 +12,17 @@ export const ENABLE_MANUAL_BANK_CHECKOUT = false
 
 export const DEFAULT_CHECKOUT_PAYMENT: CheckoutPaymentMethod = 'vnpay'
 
+/** Mức tối thiểu thanh toán VNPay (đồng) — đồng bộ với VNPAY_MIN_AMOUNT trên server */
+export const VNPAY_MIN_AMOUNT = 1_000
+
+export function canUseVnpay(amount: number): boolean {
+  return Math.round(Number(amount) || 0) >= VNPAY_MIN_AMOUNT
+}
+
+export function vnpayMinAmountMessage(): string {
+  return `Số tiền tối thiểu ${VNPAY_MIN_AMOUNT.toLocaleString('vi-VN')}đ để thanh toán VNPay.`
+}
+
 export const CHECKOUT_PAYMENT_OPTIONS: CheckoutPaymentMethod[] = ENABLE_MANUAL_BANK_CHECKOUT
   ? ['cod', 'bank', 'vnpay']
   : ['cod', 'vnpay']

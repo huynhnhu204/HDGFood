@@ -6,15 +6,22 @@ use App\Http\Controllers\Controller;
 use App\Models\LoyaltyRewardCatalog;
 use Illuminate\Http\Request;
 
+use App\Http\Controllers\Concerns\AppliesAdminTrashIndex;
+
 class LoyaltyRewardController extends Controller
 {
+    use AppliesAdminTrashIndex;
+
     public function index(Request $request)
     {
-        $items = LoyaltyRewardCatalog::query()
+        $query = LoyaltyRewardCatalog::query()
             ->when($request->filled('search'), function ($q) use ($request) {
                 $q->where('name', 'like', '%' . $request->search . '%');
-            })
-            ->latest()
+            });
+
+        $this->applyAdminTrashIndexScope($query, $request);
+
+        $items = $query->latest()
             ->paginate(min((int) $request->get('per_page', 20), 100));
 
         return response()->json($items);

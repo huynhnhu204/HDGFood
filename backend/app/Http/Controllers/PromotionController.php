@@ -6,8 +6,12 @@ use App\Http\Resources\PromotionResource;
 use App\Models\Promotion;
 use Illuminate\Http\Request;
 
+use App\Http\Controllers\Concerns\AppliesAdminTrashIndex;
+
 class PromotionController extends Controller
 {
+    use AppliesAdminTrashIndex;
+
     public function index(Request $request)
     {
         $query = Promotion::with('products');
@@ -28,6 +32,8 @@ class PromotionController extends Controller
                 });
             }
         }
+
+        $this->applyAdminTrashIndexScope($query, $request);
 
         return PromotionResource::collection(
             $query->latest()->paginate(min((int) $request->get('per_page', 15), 100))

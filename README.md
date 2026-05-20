@@ -48,6 +48,8 @@ README nay duoc viet lai de mo ta ro "web hien co dang dung de lam gi" va cac ch
 - Quan ly banner.
 - Quan ly ban an va phien ban.
 - Quan ly thanh vien/nguoi dung.
+- **Thung rac** (`/admin/trash`): khoi phuc hoac xoa vinh vien ban ghi da xoa.
+- **Thanh toan don**: VNPay Sandbox, VietQR, doi soat trang thai thanh toan tren don hang.
 
 ### 1.3 Backend API
 - Cung cap REST API cho toan bo module.
@@ -224,7 +226,38 @@ php artisan storage:link
 
 ---
 
-## 8) Thong tin du an
+## 8) Cap nhat gan day (GitHub)
+
+### 8.1 Thanh toan VNPay + VietQR (da co tren `main`)
+- Luong checkout tach buoc: gio hang → thanh toan (`/checkout/payment`) → thanh cong / VNPay return.
+- Khach chon: **VNPay Sandbox**, **chuyen khoan VietQR**, hoac **COD**.
+- VNPay: tao URL thanh toan, callback IPN, trang return; luu `vnpay_txn_ref`, `payment_claimed_at` tren don.
+- Admin: badge trang thai thanh toan, card doi soat don, cai dat VNPay/VietQR trong **Cai dat**.
+- API: `PaymentController`, `VnPayController`, `PaymentSupport`.
+
+### 8.2 Thung rac admin + soft delete (ban cap nhat moi)
+- Xoa mem nhieu thuc the: san pham, danh muc, combo, khuyen mai, voucher, banner, ban, bai viet/chu de, review, chinh sach, menu, thanh vien, anh san pham...
+- Trang **`/admin/trash`**: xem theo loai, tim kiem, khoi phuc hoac xoa vinh vien.
+- API admin: `GET /api/admin/trash`, `GET /api/admin/trash/summary`, `POST .../restore`, `DELETE ...` (force).
+- Danh sach san pham/danh muc admin co tab **Da xoa** (filter `trashed=only`).
+
+### 8.3 Checkout & dat tai ban
+- Module `checkout-bill.ts`: tinh bill dong nhat (combo, tier, voucher, diem, phi ship).
+- Dat tai ban: hien tong don ban dang mo (tham khao), **chi VNPay/charge so tien gio hien tai**, khong cong nham tong bill ban.
+- Gio hang: dong bo state cho dine-in / table session.
+
+### 8.4 VNPay (cai tien them)
+- Cau hinh mo rong trong `.env.example` / `config/vnpay.php`.
+- Lenh debug: `php artisan vnpay:probe` (kiem tra ket noi sandbox).
+
+**Sau khi pull code moi:**
+```bash
+cd backend && php artisan migrate
+```
+
+---
+
+## 9) Thong tin du an
 
 - Sinh vien: Duong Dao Huynh Nhu
 - MSSV: 2122110580

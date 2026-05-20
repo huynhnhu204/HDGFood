@@ -5,7 +5,7 @@ import { motion } from 'framer-motion'
 import type { LucideIcon } from 'lucide-react'
 import {
   LayoutDashboard, ShoppingBag, Package, Tag, Warehouse, Users, Percent, Ticket,
-  BookOpen, FileText, Settings, Image as ImageIcon, ListTree, LayoutGrid, Mail, MessageSquare, Sparkles, Shield, Gift, Workflow
+  BookOpen, FileText, Settings, Image as ImageIcon, ListTree, LayoutGrid, Mail, MessageSquare, Sparkles, Shield, Gift, Workflow, Trash2
 } from 'lucide-react'
 
 interface SidebarProps {
@@ -74,6 +74,7 @@ const GROUPS: SidebarGroupConfig[] = [
     label: 'HE THONG',
     items: [
       { href: '/admin/members', icon: Users, label: 'Thành viên' },
+      { href: '/admin/trash', icon: Trash2, label: 'Thùng rác' },
       { href: '/admin/settings', icon: Settings, label: 'Cài đặt' },
     ],
   },

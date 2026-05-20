@@ -6,9 +6,12 @@ use App\Http\Resources\CategoryResource;
 use App\Models\Category;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
+use App\Http\Controllers\Concerns\AppliesAdminTrashIndex;
 
 class CategoryController extends Controller
 {
+    use AppliesAdminTrashIndex;
+
     private const DEFAULT_CATEGORY_ID = 1;
 
     public function index(Request $request)
@@ -30,6 +33,8 @@ class CategoryController extends Controller
             })
             ->orderBy('position')
             ->orderBy('name');
+
+        $this->applyAdminTrashIndexScope($query, $request);
 
         if ($request->has('per_page')) {
             return CategoryResource::collection($query->paginate($request->per_page ?? 20));

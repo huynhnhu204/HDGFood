@@ -10,9 +10,12 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
+use App\Http\Controllers\Concerns\AppliesAdminTrashIndex;
 
 class ProductController extends Controller
 {
+    use AppliesAdminTrashIndex;
+
     public function index(Request $request)
     {
         $search = $request->input('search') ?: $request->input('q');
@@ -38,6 +41,10 @@ class ProductController extends Controller
             ->when($request->has('stock_min'), fn($q) => $q->where('stock', '>=', $request->stock_min))
             ->when($request->has('stock_max'), fn($q) => $q->where('stock', '<=', $request->stock_max))
             ->when(!$request->user()?->isAdmin(), fn($q) => $q->where('is_active', true));
+
+        if ($request->user()?->isAdmin()) {
+            $this->applyAdminTrashIndexScope($query, $request);
+        }
 
         // Sorting logic - Tối ưu SEO với default sort
         $sort = $request->input('sort', 'latest');

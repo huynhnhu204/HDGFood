@@ -8,9 +8,11 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
+use App\Http\Controllers\Concerns\AppliesAdminTrashIndex;
 
 class PostController extends Controller
 {
+    use AppliesAdminTrashIndex;
     private const THUMBNAIL_MAX_KB = 10240; // 10MB
     /* ══════════════════════════════════════════
      | GET /api/posts
@@ -23,6 +25,8 @@ class PostController extends Controller
         // Public users only see published posts
         if (!$request->user()?->is_admin) {
             $query->where('status', 'published');
+        } else {
+            $this->applyAdminTrashIndexScope($query, $request);
         }
 
         $query->orderBy('created_at', 'desc');

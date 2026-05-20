@@ -33,19 +33,30 @@ class VnPayController extends Controller
             $order->refresh();
         }
 
-        if ((float) $order->final_total < 1000) {
-            return response()->json(['message' => 'Số tiền đơn tối thiểu 1.000đ để thanh toán VNPay.'], 422);
+        $minAmount = (int) config('vnpay.min_amount', 1000);
+        if ((float) $order->final_total < $minAmount) {
+            return response()->json([
+                'message' => 'Số tiền đơn tối thiểu '.number_format($minAmount, 0, ',', '.').'đ để thanh toán VNPay.',
+            ], 422);
         }
 
         $built = $this->vnPay->buildPaymentUrl($order, (string) $request->ip());
         $order->update(['vnpay_txn_ref' => $built['txn_ref']]);
 
-        return response()->json([
-            'data' => [
-                'payment_url' => $built['url'],
-                'txn_ref' => $built['txn_ref'],
-            ],
-        ]);
+        $payload = [
+            'payment_url' => $built['url'],
+            'txn_ref' => $built['txn_ref'],
+        ];
+
+        if (config('app.debug')) {
+            $payload['vnpay_check'] = [
+                'tmn_code' => config('vnpay.tmn_code'),
+                'return_url' => config('vnpay.return_url'),
+                'probe_command' => 'php artisan vnpay:probe --order='.$order->id,
+            ];
+        }
+
+        return response()->json(['data' => $payload]);
     }
 
     /**

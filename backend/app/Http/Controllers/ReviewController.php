@@ -12,8 +12,11 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 
+use App\Http\Controllers\Concerns\AppliesAdminTrashIndex;
+
 class ReviewController extends Controller
 {
+    use AppliesAdminTrashIndex;
     // ── Public APIs ──────────────────────────────────────────────────────────
 
     public function getByProduct(Request $request, Product $product)
@@ -122,8 +125,7 @@ class ReviewController extends Controller
                   ->orWhereHas('product', fn($pq) => $pq->where('name', 'like', "%$s%"));
             });
 
-        // Route này nằm sau middleware admin — luôn trả về mọi đánh giá (kể cả chờ duyệt).
-        // Trước đây dùng `is_admin` (không tồn tại trên User) nên luôn lọc sai như chỉ hiện đã duyệt.
+        $this->applyAdminTrashIndexScope($query, $request);
 
         return response()->json($query->orderByDesc('created_at')->paginate($request->limit ?? 20));
     }

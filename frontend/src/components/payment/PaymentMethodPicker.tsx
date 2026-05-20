@@ -6,6 +6,9 @@ import {
   type CheckoutPaymentMethod,
   CHECKOUT_PAYMENT_OPTIONS,
   ENABLE_MANUAL_BANK_CHECKOUT,
+  VNPAY_MIN_AMOUNT,
+  canUseVnpay,
+  vnpayMinAmountMessage,
 } from '@/lib/payment-flow'
 
 const ALL_OPTIONS: {
@@ -65,10 +68,13 @@ const OPTIONS = ALL_OPTIONS.filter((o) => CHECKOUT_PAYMENT_OPTIONS.includes(o.id
 type Props = {
   value: CheckoutPaymentMethod
   onChange: (v: CheckoutPaymentMethod) => void
+  /** Tổng phải trả (sau giảm giá, có ship) — dùng để khóa VNPay khi dưới mức tối thiểu */
+  payableTotal?: number
 }
 
-export default function PaymentMethodPicker({ value, onChange }: Props) {
+export default function PaymentMethodPicker({ value, onChange, payableTotal = 0 }: Props) {
   const selected = OPTIONS.find((o) => o.id === value)
+  const vnpayAllowed = canUseVnpay(payableTotal)
 
   return (
     <div className="space-y-4">
@@ -86,11 +92,14 @@ export default function PaymentMethodPicker({ value, onChange }: Props) {
         {OPTIONS.map((opt) => {
           const active = value === opt.id
           const Icon = opt.icon
+          const disabled = opt.id === 'vnpay' && !vnpayAllowed
           return (
             <label
               key={opt.id}
-              className={`cursor-pointer rounded-2xl border-2 p-4 transition-all block ${
-                active ? `${opt.tone.ring} ${opt.tone.bg} shadow-sm` : 'border-slate-100 hover:border-slate-200 bg-white'
+              className={`rounded-2xl border-2 p-4 transition-all block ${
+                disabled
+                  ? 'cursor-not-allowed border-slate-100 bg-slate-50/80 opacity-70'
+                  : `cursor-pointer ${active ? `${opt.tone.ring} ${opt.tone.bg} shadow-sm` : 'border-slate-100 hover:border-slate-200 bg-white'}`
               }`}
             >
               <input
@@ -98,7 +107,8 @@ export default function PaymentMethodPicker({ value, onChange }: Props) {
                 className="sr-only"
                 name="payment"
                 checked={active}
-                onChange={() => onChange(opt.id)}
+                disabled={disabled}
+                onChange={() => !disabled && onChange(opt.id)}
               />
               <div className="flex items-start gap-3">
                 <div
@@ -118,13 +128,23 @@ export default function PaymentMethodPicker({ value, onChange }: Props) {
                       {opt.badge}
                     </span>
                   </div>
-                  <p className="text-[11px] font-medium text-slate-500 mt-0.5 leading-snug">{opt.subtitle}</p>
+                  <p className="text-[11px] font-medium text-slate-500 mt-0.5 leading-snug">
+                    {disabled
+                      ? `Cần tổng đơn từ ${VNPAY_MIN_AMOUNT.toLocaleString('vi-VN')}đ (hiện ${Math.round(payableTotal).toLocaleString('vi-VN')}đ)`
+                      : opt.subtitle}
+                  </p>
                 </div>
               </div>
             </label>
           )
         })}
       </div>
+
+      {!vnpayAllowed && CHECKOUT_PAYMENT_OPTIONS.includes('vnpay') && (
+        <p className="text-[11px] font-medium text-amber-800 bg-amber-50 border border-amber-100 rounded-xl px-3 py-2">
+          {vnpayMinAmountMessage()} Thêm món hoặc chọn COD.
+        </p>
+      )}
 
       <AnimatePresence mode="wait">
         {ENABLE_MANUAL_BANK_CHECKOUT && value === 'bank' && (

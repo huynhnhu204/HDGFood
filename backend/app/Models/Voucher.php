@@ -4,11 +4,13 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Carbon\Carbon;
 
 class Voucher extends Model
 {
     use HasFactory;
+    use SoftDeletes;
 
     protected $fillable = [
         'code', 'name', 'description', 'discount_type', 'discount_value', 'max_discount',

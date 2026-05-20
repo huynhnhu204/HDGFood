@@ -11,8 +11,11 @@ use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 
+use App\Http\Controllers\Concerns\AppliesAdminTrashIndex;
+
 class ComboController extends Controller
 {
+    use AppliesAdminTrashIndex;
     // ==================== PUBLIC ENDPOINTS ====================
 
     /**
@@ -238,6 +241,8 @@ class ComboController extends Controller
         if ($request->has('is_active')) {
             $query->where('is_active', $request->boolean('is_active'));
         }
+
+        $this->applyAdminTrashIndexScope($query, $request);
 
         $perPage = $request->get('per_page', 15);
         $combos = $query->paginate($perPage);

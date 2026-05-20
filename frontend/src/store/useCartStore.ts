@@ -40,6 +40,10 @@ interface CartStore {
   getTotalItems: () => number
   getComboItems: () => CartItem[]
   getRegularItems: () => CartItem[]
+  /** Cập nhật đơn giá sau /cart/sync (khớp server) */
+  reconcilePrices: (
+    updates: Array<{ productId: number; price: number; options?: Record<string, unknown> | null }>,
+  ) => void
 }
 
 // Generate unique ID for cart item considering options (size, toppings, etc.)
@@ -194,6 +198,22 @@ export const useCartStore = create<CartStore>()(
 
       getRegularItems: () => {
         return get().items.filter(item => !item.isCombo)
+      },
+
+      reconcilePrices: (updates) => {
+        if (!updates.length) return
+        set((state) => ({
+          items: state.items.map((item) => {
+            if (item.isCombo) return item
+            const match = updates.find(
+              (u) =>
+                u.productId === item.productId &&
+                JSON.stringify(u.options ?? null) === JSON.stringify(item.options ?? null),
+            )
+            if (!match || match.price === item.price) return item
+            return { ...item, price: match.price }
+          }),
+        }))
       },
     }),
     {

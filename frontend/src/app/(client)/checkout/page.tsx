@@ -18,7 +18,15 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { voucherService } from '@/services/voucher.service'
 import type { Voucher } from '@/types'
 import type { CheckoutPaymentMethod } from '@/lib/payment-flow'
-import { checkoutCtaLabel, DEFAULT_CHECKOUT_PAYMENT } from '@/lib/payment-flow'
+import {
+  checkoutCtaLabel,
+  DEFAULT_CHECKOUT_PAYMENT,
+  VNPAY_MIN_AMOUNT,
+  canUseVnpay,
+  vnpayMinAmountMessage,
+} from '@/lib/payment-flow'
+import { buildCheckoutBill } from '@/lib/checkout-bill'
+import { TIER_LABELS, type UserTier } from '@/types'
 import { paymentService } from '@/services/payment.service'
 import PaymentMethodPicker from '@/components/payment/PaymentMethodPicker'
 import { tableService } from '@/services/table.service'
@@ -27,7 +35,7 @@ import Pusher from 'pusher-js'
 export default function CheckoutPage() {
   const router = useRouter()
   const { user } = useAuthStore()
-  const { items, getTotal, clearCart, tableId, tableSessionToken } = useCartStore()
+  const { items, clearCart, tableId, tableSessionToken, reconcilePrices } = useCartStore()
 
   const [mounted, setMounted] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -102,9 +110,11 @@ export default function CheckoutPage() {
 
     setValidatingVoucher(true)
     try {
-      const cartSubtotal = Math.max(0, Number(getTotal() || 0))
-      const tableSubtotal = isDineIn ? Math.max(0, Number(currentTableOrder?.final_total || 0)) : 0
-      const currentSubtotal = Math.round((cartSubtotal + tableSubtotal) * 100) / 100
+      const cartSubtotal = items.reduce(
+        (s, item) => s + Number(item.price || 0) * Math.max(1, Number(item.quantity || 1)),
+        0,
+      )
+      const currentSubtotal = Math.round(Math.max(0, cartSubtotal) * 100) / 100
       const productIds = items.map(item => item.productId).filter(Boolean)
       const result = await voucherService.validate(code, currentSubtotal, productIds)
       
@@ -135,56 +145,49 @@ export default function CheckoutPage() {
   // Calculations
   const userPoints = user?.loyalty_points || 0
 
+  const bill = useMemo(
+    () =>
+      buildCheckoutBill({
+        items,
+        isDineIn,
+        shippingMethod: shippingMethod as 'standard' | 'express',
+        appliedVoucherDiscount,
+        usePoints,
+        userPoints,
+        userTier: (user?.tier as UserTier | undefined) ?? null,
+        tableOrderFinalTotal: currentTableOrder?.final_total,
+      }),
+    [
+      items,
+      isDineIn,
+      shippingMethod,
+      appliedVoucherDiscount,
+      usePoints,
+      userPoints,
+      user?.tier,
+      currentTableOrder?.final_total,
+    ],
+  )
+
   const {
-    existingTableTotal,
-    subtotal,
+    lines: billLines,
+    cartSubtotal: subtotal,
     shippingFee,
     comboOriginalTotal,
     comboDiscountTotal,
+    tierDiscount,
     voucherDiscount,
     pointsDiscount,
-    total,
-  } = useMemo(() => {
-    const cartSubtotal = Math.max(0, Number(getTotal() || 0))
-    const comboOriginal = items
-      .filter((item) => item.isCombo)
-      .reduce((sum, item) => {
-        const base = Number(item.comboBasePrice || item.price || 0)
-        const qty = Math.max(1, Number(item.quantity || 1))
-        return sum + base * qty
-      }, 0)
-    const comboFinal = items
-      .filter((item) => item.isCombo)
-      .reduce((sum, item) => sum + Number(item.price || 0) * Math.max(1, Number(item.quantity || 1)), 0)
-    const comboDiscount = Math.max(0, comboOriginal - comboFinal)
-    const serverTableTotal = isDineIn ? Math.max(0, Number(currentTableOrder?.final_total || 0)) : 0
-    const effectiveShippingFee = isDineIn ? 0 : (shippingMethod === 'express' ? 30000 : 15000)
+    payableTotal: total,
+    tableOrderTotal: existingTableTotal,
+    tablePlusCartDisplayTotal,
+  } = bill
 
-    // Voucher không được vượt quá giá trị món trong giỏ
-    const safeVoucherDiscount = Math.min(Math.max(0, Number(appliedVoucherDiscount || 0)), cartSubtotal)
-
-    // Điểm chỉ áp dụng trên phần còn lại sau voucher
-    const baseAfterVoucher = Math.max(0, cartSubtotal - safeVoucherDiscount)
-    const rawPointsDiscount = usePoints ? Math.max(0, userPoints * 100) : 0
-    const safePointsDiscount = Math.min(rawPointsDiscount, baseAfterVoucher)
-
-    // Với đơn tại bàn: tổng cộng = đơn server hiện tại + phần món mới đang thêm
-    const finalTotal = Math.max(
-      0,
-      serverTableTotal + baseAfterVoucher - safePointsDiscount + effectiveShippingFee
-    )
-
-    return {
-      existingTableTotal: serverTableTotal,
-      subtotal: cartSubtotal,
-      shippingFee: effectiveShippingFee,
-      comboOriginalTotal: comboOriginal,
-      comboDiscountTotal: comboDiscount,
-      voucherDiscount: safeVoucherDiscount,
-      pointsDiscount: safePointsDiscount,
-      total: finalTotal,
+  useEffect(() => {
+    if (paymentMethod === 'vnpay' && !canUseVnpay(total)) {
+      setPaymentMethod('cod')
     }
-  }, [getTotal, items, isDineIn, shippingMethod, appliedVoucherDiscount, usePoints, userPoints, currentTableOrder])
+  }, [total, paymentMethod])
 
   useEffect(() => {
     if (!tableId) {
@@ -270,8 +273,8 @@ export default function CheckoutPage() {
       }
     }
 
-    if (paymentMethod === 'vnpay' && total < 1000) {
-      toast.error('Số tiền tối thiểu 1.000đ để thanh toán VNPay.')
+    if (paymentMethod === 'vnpay' && !canUseVnpay(total)) {
+      toast.error(vnpayMinAmountMessage())
       return
     }
 
@@ -286,6 +289,24 @@ export default function CheckoutPage() {
            toast.error('Có sự thay đổi trong giỏ hàng', { description: syncRes.data.alerts.join(', ') })
            setLoading(false)
            return
+        }
+        const validItems = syncRes.data?.valid_items as Array<{
+          productId: number
+          price: number
+          options?: Record<string, unknown> | null
+          is_price_changed?: boolean
+        }> | undefined
+        if (validItems?.length) {
+          reconcilePrices(
+            validItems.map((v) => ({
+              productId: v.productId,
+              price: Number(v.price),
+              options: v.options ?? null,
+            })),
+          )
+          if (validItems.some((v) => v.is_price_changed)) {
+            toast.info('Giá món đã được cập nhật theo thực đơn hiện tại.')
+          }
         }
       }
 
@@ -339,6 +360,7 @@ export default function CheckoutPage() {
             subtotal: Number(subtotal || 0),
             shippingFee: Number(shippingFee || 0),
             comboDiscountTotal: Number(comboDiscountTotal || 0),
+            tierDiscount: Number(tierDiscount || 0),
             voucherDiscount: Number(voucherDiscount || 0),
             pointsDiscount: Number(pointsDiscount || 0),
             total: Number(total || 0),
@@ -355,11 +377,24 @@ export default function CheckoutPage() {
         // Không chặn flow nếu lưu bill tạm thất bại
       }
       
-      const createdOrder = res?.data?.data as { id?: number; payment_method?: string } | undefined
+      const createdOrder = res?.data?.data as
+        | { id?: number; payment_method?: string; total_price?: number }
+        | undefined
       const orderId = Number(createdOrder?.id)
+      const orderPayable = Math.round(Number(createdOrder?.total_price ?? total))
       const checkoutPhone = deliveryType === 'self' && user ? (user.phone || phone) : phone
 
       if (paymentMethod === 'vnpay' && orderId) {
+        if (!canUseVnpay(orderPayable)) {
+          clearCart()
+          toast.warning(vnpayMinAmountMessage(), {
+            description: `Đơn đã tạo. Chọn COD hoặc đặt đơn mới với tổng từ ${VNPAY_MIN_AMOUNT.toLocaleString('vi-VN')}đ.`,
+          })
+          router.push(
+            `/checkout/success?order_id=${orderId}&payment_method=vnpay&total=${orderPayable}`,
+          )
+          return
+        }
         try {
           const { payment_url } = await paymentService.createVnpayPayment(
             orderId,
@@ -372,8 +407,11 @@ export default function CheckoutPage() {
           return
         } catch (vnpayErr: unknown) {
           const msg = (vnpayErr as { response?: { data?: { message?: string } } })?.response?.data?.message
+          clearCart()
           toast.error('Không mở được VNPay', { description: msg || 'Kiểm tra cấu hình VNPAY trên server.' })
-          setLoading(false)
+          router.push(
+            `/checkout/success?order_id=${orderId}&payment_method=vnpay&total=${orderPayable}`,
+          )
           return
         }
       }
@@ -440,21 +478,24 @@ export default function CheckoutPage() {
                    className="overflow-hidden"
                 >
                    <div className="pb-6 border-t border-slate-100 pt-4">
-                      {items.map(item => (
-                         <div key={item.id} className="flex gap-4 py-2">
+                      {billLines.map((line) => {
+                         const item = items.find((i) => i.id === line.id)
+                         return (
+                         <div key={line.id} className="flex gap-4 py-2">
                            <div className="w-12 h-12 bg-slate-100 rounded-lg shrink-0 overflow-hidden relative border border-slate-200">
-                             <img src={item.image} className="w-full h-full object-cover" />
-                             <span className="absolute -top-1 -right-1 bg-slate-900 text-white w-4 h-4 flex items-center justify-center rounded-full text-[9px] font-black">{item.quantity}</span>
+                             <img src={item?.image} className="w-full h-full object-cover" alt="" />
+                             <span className="absolute -top-1 -right-1 bg-slate-900 text-white w-4 h-4 flex items-center justify-center rounded-full text-[9px] font-black">{line.quantity}</span>
                            </div>
                            <div className="flex-1 min-w-0">
-                             <h4 className="text-xs font-black uppercase text-slate-900 line-clamp-1">{item.name}</h4>
-                             {item.options && <p className="text-[10px] text-slate-500 uppercase">{Object.values(item.options).join(', ')}</p>}
+                             <h4 className="text-xs font-black uppercase text-slate-900 line-clamp-1">{line.name}</h4>
+                             {item?.options && <p className="text-[10px] text-slate-500 uppercase">{Object.values(item.options).join(', ')}</p>}
+                             <p className="text-[10px] text-slate-400 mt-0.5">{line.unitPrice.toLocaleString()}đ × {line.quantity}</p>
                            </div>
                            <div className="text-sm font-black text-slate-900 shrink-0 italic">
-                              {(item.price * item.quantity).toLocaleString()}đ
+                              {line.lineTotal.toLocaleString()}đ
                            </div>
                          </div>
-                      ))}
+                      )})}
                    </div>
                 </motion.div>
               )}
@@ -652,7 +693,11 @@ export default function CheckoutPage() {
                 <h2 className="text-sm font-black uppercase tracking-widest text-slate-900 flex items-center gap-2 border-b border-slate-50 pb-4">
                    <CreditCard className="w-4 h-4 text-blue-500" /> Thanh toán
                 </h2>
-                <PaymentMethodPicker value={paymentMethod} onChange={setPaymentMethod} />
+                <PaymentMethodPicker
+                  value={paymentMethod}
+                  onChange={setPaymentMethod}
+                  payableTotal={total}
+                />
              </section>
 
           </div>
@@ -666,19 +711,22 @@ export default function CheckoutPage() {
 
                 {/* Items */}
                 <div className="space-y-4 max-h-[40vh] overflow-y-auto scrollbar-hide mb-6 border-b border-slate-100 pb-6">
-                   {items.map(item => (
-                      <div key={item.id} className="flex gap-4 group">
+                   {billLines.map((line) => {
+                      const item = items.find((i) => i.id === line.id)
+                      return (
+                      <div key={line.id} className="flex gap-4 group">
                         <div className="w-16 h-16 bg-slate-50 rounded-2xl border border-slate-100 shrink-0 overflow-hidden relative">
-                          <img src={item.image} alt={item.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform" />
-                          <span className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-slate-900 text-white rounded-full flex items-center justify-center text-[10px] font-black border-2 border-white shadow-sm">{item.quantity}</span>
+                          <img src={item?.image} alt={line.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform" />
+                          <span className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-slate-900 text-white rounded-full flex items-center justify-center text-[10px] font-black border-2 border-white shadow-sm">{line.quantity}</span>
                         </div>
                         <div className="flex-1 min-w-0 flex flex-col justify-center">
-                           <h4 className="text-xs font-bold uppercase text-slate-900 line-clamp-1">{item.name}</h4>
-                           {item.options && <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter shrink-0">{Object.values(item.options).join(', ')}</p>}
-                           <div className="font-bold text-red-500 italic text-sm mt-1">{(item.price * item.quantity).toLocaleString()}đ</div>
+                           <h4 className="text-xs font-bold uppercase text-slate-900 line-clamp-1">{line.name}</h4>
+                           {item?.options && <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter shrink-0">{Object.values(item.options).join(', ')}</p>}
+                           <p className="text-[10px] text-slate-400 mt-0.5">{line.unitPrice.toLocaleString()}đ × {line.quantity}</p>
+                           <div className="font-bold text-red-500 italic text-sm mt-1">{line.lineTotal.toLocaleString()}đ</div>
                         </div>
                       </div>
-                   ))}
+                   )})}
                 </div>
 
                 {/* Voucher */}
@@ -834,24 +882,14 @@ export default function CheckoutPage() {
                        </div>
                      </div>
                    )}
-                   {existingTableTotal > 0 && (
-                     <div className="flex justify-between">
-                        <span className="uppercase text-[11px] tracking-widest">Đơn server hiện tại</span>
-                        <span className="text-slate-900 font-black">{existingTableTotal.toLocaleString()}đ</span>
-                     </div>
-                   )}
                    <div className="flex justify-between">
-                     <span className="uppercase text-[11px] tracking-widest">{existingTableTotal > 0 ? 'Món thêm mới' : 'Tạm tính'}</span>
+                     <span className="uppercase text-[11px] tracking-widest">Tạm tính món</span>
                       <span className="text-slate-900 font-black">{subtotal.toLocaleString()}đ</span>
-                   </div>
-                   <div className="flex justify-between text-slate-400">
-                      <span className="uppercase text-[11px] tracking-widest">Tổng trước giảm</span>
-                      <span>{(existingTableTotal + subtotal).toLocaleString()}đ</span>
                    </div>
                    {comboDiscountTotal > 0 && (
                      <div className="flex justify-between text-violet-600">
-                       <span className="uppercase text-[11px] tracking-widest">Giảm từ combo</span>
-                       <span className="font-black">- {comboDiscountTotal.toLocaleString()}đ</span>
+                       <span className="uppercase text-[11px] tracking-widest">Giảm combo (đã vào giá)</span>
+                       <span className="font-black">-{comboDiscountTotal.toLocaleString()}đ</span>
                      </div>
                    )}
                    {comboDiscountTotal > 0 && (
@@ -861,13 +899,21 @@ export default function CheckoutPage() {
                      </div>
                    )}
                    <div className="flex justify-between text-[11px] text-slate-400">
-                      <span>Giảm từ SP khuyến mãi</span>
-                      <span>Đã tính trực tiếp vào giá từng món</span>
+                      <span>Khuyến mãi SP</span>
+                      <span>Đã tính vào đơn giá từng dòng</span>
                    </div>
+                   {tierDiscount > 0 && user?.tier && (
+                     <div className="flex justify-between text-indigo-600">
+                       <span className="uppercase text-[11px] tracking-widest">Ưu đãi {TIER_LABELS[user.tier as UserTier]}</span>
+                       <span className="font-black">- {tierDiscount.toLocaleString()}đ</span>
+                     </div>
+                   )}
+                   {!isDineIn && (
                    <div className="flex justify-between">
                       <span className="uppercase text-[11px] tracking-widest">Phí vận chuyển</span>
                       <span className="text-slate-900 font-black">{shippingFee.toLocaleString()}đ</span>
                    </div>
+                   )}
                    {voucherDiscount > 0 && (
                      <div className="flex justify-between text-[#ed2a2a]">
                         <span className="uppercase text-[11px] tracking-widest flex items-center gap-1">
@@ -883,22 +929,30 @@ export default function CheckoutPage() {
                         <span className="font-black">- {pointsDiscount.toLocaleString()}đ</span>
                      </div>
                    )}
-                   {(voucherDiscount > 0 || pointsDiscount > 0) && (
+                   {(tierDiscount > 0 || voucherDiscount > 0 || pointsDiscount > 0) && (
                      <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2">
                        <div className="flex justify-between text-emerald-700 text-[12px]">
                          <span className="font-black uppercase tracking-wider">Tổng giảm</span>
-                         <span className="font-black">- {(voucherDiscount + pointsDiscount).toLocaleString()}đ</span>
+                         <span className="font-black">- {(tierDiscount + voucherDiscount + pointsDiscount).toLocaleString()}đ</span>
                        </div>
                        <div className="mt-1 flex justify-between text-[11px] text-emerald-700/90">
-                         <span>Sau giảm (chưa ship)</span>
-                         <span className="font-bold">{Math.max(0, subtotal - voucherDiscount - pointsDiscount).toLocaleString()}đ</span>
+                         <span>Sau giảm{!isDineIn ? ' (chưa ship)' : ''}</span>
+                         <span className="font-bold">{Math.max(0, subtotal - tierDiscount - voucherDiscount - pointsDiscount).toLocaleString()}đ</span>
                        </div>
+                     </div>
+                   )}
+                   {isDineIn && existingTableTotal > 0 && (
+                     <div className="flex justify-between text-[11px] text-slate-400 pt-1 border-t border-dashed border-slate-200">
+                       <span>Tổng bill bàn (tham khảo)</span>
+                       <span>{tablePlusCartDisplayTotal.toLocaleString()}đ</span>
                      </div>
                    )}
                 </div>
 
                 <div className="flex items-center justify-between border-t border-slate-100 pt-6 mb-8">
-                   <span className="font-black uppercase tracking-widest text-slate-900">Tổng cộng</span>
+                   <span className="font-black uppercase tracking-widest text-slate-900">
+                     {isDineIn && existingTableTotal > 0 ? 'Thanh toán lần này' : 'Tổng cộng'}
+                   </span>
                    <span className="text-4xl font-black text-[#ed2a2a] italic">{total.toLocaleString()}đ</span>
                 </div>
 

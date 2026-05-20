@@ -152,6 +152,12 @@ Route::middleware('auth:sanctum')->group(function () {
     // ── ADMIN ONLY (Prefix: /api/admin/...) ──────────────────────────────────
     Route::prefix('admin')->middleware('admin')->group(function () {
 
+        // Thùng rác tập trung (khôi phục / xóa vĩnh viễn)
+        Route::get('/trash/summary', [\App\Http\Controllers\Admin\TrashController::class, 'summary']);
+        Route::get('/trash', [\App\Http\Controllers\Admin\TrashController::class, 'index']);
+        Route::post('/trash/{type}/{id}/restore', [\App\Http\Controllers\Admin\TrashController::class, 'restore']);
+        Route::delete('/trash/{type}/{id}', [\App\Http\Controllers\Admin\TrashController::class, 'forceDelete']);
+
         // Quản lý chủ đề bài viết & Bài viết
         Route::apiResource('/post-topics', \App\Http\Controllers\PostTopicController::class);
         Route::patch('/post-topics/{postTopic}/toggle', [\App\Http\Controllers\PostTopicController::class, 'toggle']);
