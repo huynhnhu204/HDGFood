@@ -6,13 +6,14 @@ import {
   ListTree, Plus, Loader2, Edit, Trash2,
   LayoutTemplate, Smartphone, MoreHorizontal, Settings,
   ChevronRight, Calendar, ArrowRight, Search, 
-  RotateCcw, Info, Trash, Check, X, Filter
+  Info, Check, X, Filter
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { menuService } from '@/services/menu.service'
 import type { Menu } from '@/types'
 import Link from 'next/link'
 import { Skeleton } from '@/components/common/Skeleton'
+import AdminTrashLink from '@/components/admin/AdminTrashLink'
 
 const POSITIONS: Record<string, { label: string; icon: any; color: string }> = {
   header: { label: 'Header Menu', icon: LayoutTemplate, color: 'text-blue-600 bg-blue-50 border-blue-100' },
@@ -27,7 +28,6 @@ export default function MenusPage() {
   const router = useRouter()
   const [menus, setMenus] = useState<Menu[]>([])
   const [loading, setLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState<'all' | 'trash'>('all')
   const [searchQuery, setSearchQuery] = useState('')
   const [posFilter, setPosFilter] = useState('')
 
@@ -36,21 +36,15 @@ export default function MenusPage() {
     try {
       const params: any = { q: searchQuery }
       if (posFilter) params.position = posFilter
-      // Tab 'all' lay ca status 0 va 1, tab 'trash' chi lay status 0
-      if (activeTab === 'trash') params.status = 0
-      // Khong truyen status khi 'all' de lay het
       const res = await menuService.adminGetAll(params)
-      // Filter client-side: 'all' chi hien status=1, 'trash' hien status=0
-      const filtered = activeTab === 'all'
-        ? (Array.isArray(res) ? res : []).filter((m: any) => isMenuActive(m.status))
-        : (Array.isArray(res) ? res : [])
+      const filtered = (Array.isArray(res) ? res : []).filter((m: any) => isMenuActive(m.status))
       setMenus(filtered)
     } catch {
       toast.error('Lỗi khi tải danh sách Menu')
     } finally {
       setLoading(false)
     }
-  }, [activeTab, searchQuery, posFilter])
+  }, [searchQuery, posFilter])
 
   useEffect(() => {
     const timer = setTimeout(loadData, 300)
@@ -78,27 +72,6 @@ export default function MenusPage() {
     }
   }
 
-  const handleRestore = async (id: number) => {
-    try {
-      await menuService.restore(id)
-      toast.success('Đã khôi phục thành công')
-      loadData()
-    } catch {
-      toast.error('Khôi phục thất bại')
-    }
-  }
-
-  const handlePurge = async (id: number) => {
-    if (!confirm('Hành động này sẽ xóa vĩnh viễn menu khỏi hệ thống và không thể khôi phục. Bạn có chắc chắn?')) return
-    try {
-      await menuService.purge(id)
-      toast.success('Đã xóa vĩnh viễn')
-      loadData()
-    } catch {
-      toast.error('Xóa vĩnh viễn thất bại')
-    }
-  }
-
   return (
     <div className="max-w-[1400px] mx-auto space-y-8 animate-in fade-in duration-500 pb-20">
       
@@ -116,32 +89,19 @@ export default function MenusPage() {
            </h1>
         </div>
         
-        <button
-          onClick={() => router.push('/admin/menus/create')}
-          className="flex items-center justify-center gap-2 px-10 py-4 bg-[#ed2a2a] text-white rounded-2xl text-[14px] font-black shadow-[0_8px_30px_rgba(237,42,42,0.3)] hover:scale-[1.02] active:scale-95 transition-all w-full md:w-auto uppercase tracking-widest"
-        >
-          <Plus className="w-5 h-5" /> Thêm Menu Mới
-        </button>
-      </div>
-
-      {/* ── TABS & FILTERS ── */}
-      <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-6">
-        <div className="flex bg-white p-1 rounded-2xl border border-slate-200 w-fit shadow-sm">
-          <button 
-            onClick={() => setActiveTab('all')}
-            className={`px-8 py-3 rounded-xl text-[13px] font-black uppercase tracking-wider transition-all flex items-center gap-2 ${activeTab === 'all' ? 'bg-[#ed2a2a] text-white shadow-lg shadow-red-500/20' : 'text-slate-400 hover:text-slate-600'}`}
+        <div className="flex flex-col sm:flex-row items-center gap-3 w-full md:w-auto">
+          <AdminTrashLink trashType="menu" />
+          <button
+            onClick={() => router.push('/admin/menus/create')}
+            className="flex items-center justify-center gap-2 px-10 py-4 bg-[#ed2a2a] text-white rounded-2xl text-[14px] font-black shadow-[0_8px_30px_rgba(237,42,42,0.3)] hover:scale-[1.02] active:scale-95 transition-all w-full sm:w-auto uppercase tracking-widest"
           >
-            Tất cả Menu
-          </button>
-          <button 
-            onClick={() => setActiveTab('trash')}
-            className={`px-8 py-3 rounded-xl text-[13px] font-black uppercase tracking-wider transition-all flex items-center gap-2 ${activeTab === 'trash' ? 'bg-slate-800 text-white shadow-lg shadow-slate-900/20' : 'text-slate-400 hover:text-slate-600'}`}
-          >
-            Thùng rác
-            {activeTab !== 'trash' && <span className="w-5 h-5 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center text-[10px] font-black tracking-normal">!</span>}
+            <Plus className="w-5 h-5" /> Thêm Menu Mới
           </button>
         </div>
+      </div>
 
+      {/* ── FILTERS ── */}
+      <div className="flex flex-col xl:flex-row xl:items-center justify-end gap-6">
         <div className="flex flex-col sm:flex-row items-center gap-3">
            <div className="relative w-full sm:w-80 group">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-[#ed2a2a] transition-colors" />
@@ -262,41 +222,20 @@ export default function MenusPage() {
                       </td>
                       <td className="px-8 py-6 text-right">
                         <div className="flex items-center justify-end gap-2.5 opacity-100 transition-all scale-100">
-                           {activeTab === 'all' ? (
-                              <>
-                                <button 
-                                  onClick={() => router.push(`/admin/menus/${item.id}/edit`)}
-                                  className="p-3 rounded-2xl bg-white text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-all border border-slate-200 hover:border-blue-100 shadow-sm"
-                                  title="Thiết kế menu"
-                                >
-                                    <Edit className="w-4.5 h-4.5" />
-                                </button>
-                                <button 
-                                  onClick={() => handleTrash(item.id)}
-                                  className="p-3 rounded-2xl bg-white text-slate-400 hover:text-[#ed2a2a] hover:bg-red-50 transition-all border border-slate-200 hover:border-red-100 shadow-sm"
-                                  title="Đưa vào thùng rác"
-                                >
-                                    <Trash2 className="w-4.5 h-4.5" />
-                                </button>
-                              </>
-                           ) : (
-                              <>
-                                <button 
-                                  onClick={() => handleRestore(item.id)}
-                                  className="p-3 rounded-2xl bg-white text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition-all border border-slate-200 hover:border-emerald-100 shadow-sm"
-                                  title="Khôi phục"
-                                >
-                                    <RotateCcw className="w-4.5 h-4.5" />
-                                </button>
-                                <button 
-                                  onClick={() => handlePurge(item.id)}
-                                  className="p-3 rounded-2xl bg-white text-slate-400 hover:text-red-700 hover:bg-red-50 transition-all border border-slate-200 hover:border-red-300 shadow-sm"
-                                  title="Xóa vĩnh viễn"
-                                >
-                                    <Trash className="w-4.5 h-4.5" />
-                                </button>
-                              </>
-                           )}
+                           <button 
+                             onClick={() => router.push(`/admin/menus/${item.id}/edit`)}
+                             className="p-3 rounded-2xl bg-white text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-all border border-slate-200 hover:border-blue-100 shadow-sm"
+                             title="Thiết kế menu"
+                           >
+                               <Edit className="w-4.5 h-4.5" />
+                           </button>
+                           <button 
+                             onClick={() => handleTrash(item.id)}
+                             className="p-3 rounded-2xl bg-white text-slate-400 hover:text-[#ed2a2a] hover:bg-red-50 transition-all border border-slate-200 hover:border-red-100 shadow-sm"
+                             title="Đưa vào thùng rác"
+                           >
+                               <Trash2 className="w-4.5 h-4.5" />
+                           </button>
                            <Link 
                              href={`/admin/menus/${item.id}/edit`}
                              className="ml-2 p-3 rounded-2xl bg-slate-900 text-white hover:bg-[#ed2a2a] shadow-lg shadow-slate-200 hover:shadow-red-500/30 transition-all"

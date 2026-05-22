@@ -170,7 +170,10 @@ export default function ProductCreateForm({ product: initialProduct, productId }
       await productService.remove(id)
       toast.success('Đã xóa sản phẩm.')
       router.push('/admin/products')
-    } catch (err) { toast.error('Không thể xóa.') }
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
+      toast.error(typeof msg === 'string' && msg.trim() ? msg : 'Không thể xóa.')
+    }
     finally { setDeleting(false) }
   }
 

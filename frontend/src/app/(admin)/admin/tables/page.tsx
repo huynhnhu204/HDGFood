@@ -10,6 +10,7 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { tableService } from '@/services/table.service'
+import AdminTrashLink from '@/components/admin/AdminTrashLink'
 import type { Table } from '@/types'
 import Pusher from 'pusher-js'
 
@@ -112,13 +113,16 @@ export default function TableListPage() {
           <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">Quản lý vị trí ngồi & Đơn hàng tại quán</p>
         </div>
 
-        <Link 
-          href="/admin/tables/create"
-          className="flex items-center justify-center gap-2 px-6 py-3.5 bg-[#ed2a2a] text-white rounded-2xl text-[14px] font-black shadow-lg shadow-red-500/20 hover:scale-[1.02] active:scale-95 transition-all"
-        >
-          <Plus className="w-5 h-5" />
-          Thêm Bàn Mới
-        </Link>
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+          <AdminTrashLink trashType="table" className="justify-center" />
+          <Link 
+            href="/admin/tables/create"
+            className="flex items-center justify-center gap-2 px-6 py-3.5 bg-[#ed2a2a] text-white rounded-2xl text-[14px] font-black shadow-lg shadow-red-500/20 hover:scale-[1.02] active:scale-95 transition-all"
+          >
+            <Plus className="w-5 h-5" />
+            Thêm Bàn Mới
+          </Link>
+        </div>
       </div>
 
       {/* Filters */}

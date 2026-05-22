@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { Search, RefreshCw, Plus, Trash2, Pencil, Power, PowerOff, Copy, Package, Grid3X3, MoreVertical, Percent, Calendar, Eye } from 'lucide-react'
 import { toast } from 'sonner'
 import { comboAdminService } from '@/services/admin/combo-admin.service'
+import AdminTrashLink from '@/components/admin/AdminTrashLink'
 import type { Combo } from '@/types/combo'
 
 const fmt = (n: number) => n.toLocaleString('vi-VN') + 'đ'
@@ -171,6 +172,7 @@ export default function CombosPage() {
           <p className="text-[13px] font-medium text-slate-500 mt-1">Quản lý các gói combo cho phép khách chọn món</p>
         </div>
         <div className="flex items-center gap-2">
+          <AdminTrashLink trashType="combo" />
           <button
             onClick={load}
             className="p-2.5 rounded-xl bg-white border border-slate-200 text-slate-500 hover:text-[#ed2a2a] transition-all shadow-sm"

@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { Loader2, Play } from 'lucide-react'
 import { toast } from 'sonner'
 import { automationAdminService } from '@/services/admin/automation-admin.service'
+import AdminTrashLink from '@/components/admin/AdminTrashLink'
 
 interface RuleItem {
   rule: string
@@ -74,11 +75,12 @@ export default function AutomationAdminPage() {
 
   return (
     <div className="space-y-5">
-      <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-5 flex items-center justify-between">
+      <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-5 flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-black text-slate-800">Tự động gửi email chăm sóc khách hàng</h1>
           <p className="text-sm text-slate-500 mt-1">Bật/tắt từng kịch bản và theo dõi lịch sử gửi email tự động.</p>
         </div>
+        <AdminTrashLink href="/admin/trash" label="Thùng rác hệ thống" />
         <button onClick={runNow} disabled={running} className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[#ed2a2a] text-white text-sm font-black">
           {running ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />} Chạy ngay
         </button>

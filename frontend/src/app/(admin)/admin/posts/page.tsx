@@ -10,6 +10,7 @@ import {
 import { toast } from 'sonner'
 import { postService, type Post } from '@/services/post.service'
 import { postTopicService } from '@/services/post-topic.service'
+import AdminTrashLink from '@/components/admin/AdminTrashLink'
 import type { PostTopic } from '@/types'
 import Image from 'next/image'
 
@@ -122,12 +123,15 @@ export default function PostsPage() {
             Tổng cộng {total} bài viết trong hệ thống
           </p>
         </div>
-        <button
-          onClick={() => router.push('/admin/posts/create')}
-          className="hidden lg:flex items-center gap-2 px-6 py-3 bg-[#ed2a2a] text-white rounded-xl text-sm font-bold shadow-lg shadow-red-500/20 hover:scale-[1.02] active:scale-95 transition-all"
-        >
-          <Plus className="w-5 h-5" /> Viết Bài Mới
-        </button>
+        <div className="flex items-center gap-3">
+          <AdminTrashLink trashType="post" />
+          <button
+            onClick={() => router.push('/admin/posts/create')}
+            className="hidden lg:flex items-center gap-2 px-6 py-3 bg-[#ed2a2a] text-white rounded-xl text-sm font-bold shadow-lg shadow-red-500/20 hover:scale-[1.02] active:scale-95 transition-all"
+          >
+            <Plus className="w-5 h-5" /> Viết Bài Mới
+          </button>
+        </div>
       </div>
 
       {/* Stats */}

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { Search, RefreshCw, Plus, Trash2, Pencil, Power, PowerOff, Percent, MoreVertical, Tag } from 'lucide-react'
 import { toast } from 'sonner'
 import { promotionService } from '@/services/promotion.service'
+import AdminTrashLink from '@/components/admin/AdminTrashLink'
 import type { Promotion } from '@/types'
 
 const fmt     = (n: number) => n.toLocaleString('vi-VN') + 'đ'
@@ -116,12 +117,15 @@ export default function PromotionsPage() {
           </h1>
           <p className="text-[13px] font-medium text-slate-500 mt-1">Đang quản lý {total} chiến dịch tiếp thị trên hệ thống</p>
         </div>
-        <button
-          onClick={() => router.push('/admin/promotions/create')}
-          className="hidden lg:flex items-center justify-center gap-2 px-6 py-3.5 sm:py-3 bg-[#ed2a2a] text-white rounded-xl text-sm font-bold shadow-lg shadow-red-500/20 transition-all hover:scale-[1.02] active:scale-95"
-        >
-          <Plus className="w-5 h-5" /> Tạo Khuyến Mại
-        </button>
+        <div className="flex items-center gap-3">
+          <AdminTrashLink trashType="promotion" />
+          <button
+            onClick={() => router.push('/admin/promotions/create')}
+            className="hidden lg:flex items-center justify-center gap-2 px-6 py-3.5 sm:py-3 bg-[#ed2a2a] text-white rounded-xl text-sm font-bold shadow-lg shadow-red-500/20 transition-all hover:scale-[1.02] active:scale-95"
+          >
+            <Plus className="w-5 h-5" /> Tạo Khuyến Mại
+          </button>
+        </div>
       </div>
 
       {/* Stats - Horizontal Scrollable on Mobile */}
@@ -178,7 +182,7 @@ export default function PromotionsPage() {
             disabled={bulkLoading}
             className="flex items-center gap-2 px-5 py-2 bg-white text-[#ed2a2a] border border-[#ed2a2a]/50 rounded-xl text-sm font-bold hover:bg-[#ed2a2a] hover:text-white disabled:opacity-50 transition-colors shadow-sm active:scale-95"
           >
-            <Trash2 className="w-[18px] h-[18px]" /> Thùng rác
+            <Trash2 className="w-[18px] h-[18px]" /> Xóa đã chọn
           </button>
         </div>
       )}

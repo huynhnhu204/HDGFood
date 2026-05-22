@@ -20,13 +20,27 @@ class TrashController extends Controller
             $counts[$type] = AdminTrashRegistry::trashQuery($type, $config)->count();
         }
 
+        $retentionDays = (int) config('trash.retention_days', 30);
+        $memberRetentionDays = (int) config('trash.member_retention_days', 30);
+
+        $types = AdminTrashRegistry::types();
+
         return response()->json([
             'counts' => $counts,
             'total' => array_sum($counts),
-            'types' => collect(AdminTrashRegistry::types())->map(fn ($c, $k) => [
+            'retention_days' => $retentionDays,
+            'member_retention_days' => $memberRetentionDays,
+            'policy' => AdminTrashRegistry::policyForType(null),
+            'policies' => collect($types)->mapWithKeys(
+                fn ($c, $k) => [$k => AdminTrashRegistry::policyForType($k)]
+            ),
+            'types' => collect($types)->map(fn ($c, $k) => [
                 'type' => $k,
                 'label' => $c['label'],
                 'admin_path' => $c['admin_path'],
+                'retention_days' => AdminTrashRegistry::retentionDaysForType($k),
+                'auto_purge' => $k === 'member',
+                'policy' => AdminTrashRegistry::policyForType($k),
             ])->values(),
         ]);
     }
@@ -83,7 +97,8 @@ class TrashController extends Controller
         return match ($config['kind']) {
             'menu' => app(MenuController::class)->purge($id),
             'user' => response()->json([
-                'message' => 'Thành viên đã đóng không xóa vĩnh viễn từ thùng rác. Hệ thống tự dọn sau thời hạn cấu hình.',
+                'message' => 'Thành viên đã đóng không xóa vĩnh viễn từ đây. Hệ thống tự xóa cứng sau '
+                    .config('trash.member_retention_days', 30).' ngày (cron users:purge-trashed).',
             ], 422),
             'product_image' => $this->purgeProductImage($id),
             default => $this->forceDeleteSoft($type, $config, $id),
@@ -108,6 +123,8 @@ class TrashController extends Controller
                 'last_page' => $paginator->lastPage(),
                 'per_page' => $paginator->perPage(),
                 'total' => $paginator->total(),
+                'policy' => AdminTrashRegistry::policyForType($type),
+                'auto_purge' => $type === 'member',
             ],
         ]);
     }
@@ -144,6 +161,8 @@ class TrashController extends Controller
                 'last_page' => $lastPage,
                 'per_page' => $perPage,
                 'total' => $total,
+                'policy' => AdminTrashRegistry::policyForType(null),
+                'auto_purge' => false,
             ],
         ]);
     }

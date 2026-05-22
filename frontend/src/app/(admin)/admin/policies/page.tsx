@@ -6,6 +6,7 @@ import { Plus, Search, RefreshCw, Pencil, Trash2, Power, PowerOff, Shield } from
 import { toast } from 'sonner'
 import type { Policy } from '@/types'
 import { policyService } from '@/services/policy.service'
+import AdminTrashLink from '@/components/admin/AdminTrashLink'
 
 const CATEGORIES = ['payment', 'shipping', 'privacy', 'terms', 'refund', 'general']
 
@@ -66,13 +67,16 @@ export default function AdminPoliciesPage() {
           </h1>
           <p className="text-sm text-slate-500">Quản trị nội dung Terms, Privacy, Shipping, Payment...</p>
         </div>
-        <button
-          onClick={() => router.push('/admin/policies/create')}
-          className="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-[#ed2a2a] text-white font-bold"
-        >
-          <Plus className="w-4 h-4" />
-          Thêm chính sách
-        </button>
+        <div className="flex items-center gap-2 flex-wrap">
+          <AdminTrashLink trashType="policy" />
+          <button
+            onClick={() => router.push('/admin/policies/create')}
+            className="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-[#ed2a2a] text-white font-bold"
+          >
+            <Plus className="w-4 h-4" />
+            Thêm chính sách
+          </button>
+        </div>
       </div>
 
       <div className="bg-white rounded-2xl border border-slate-200 p-4 flex flex-col md:flex-row gap-3">

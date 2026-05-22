@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { Search, RefreshCw, Plus, Trash2, Eye, Package2, Filter, X, ChevronDown, ChevronUp, Upload } from 'lucide-react'
 import { toast } from 'sonner'
 import { importService } from '@/services/import.service'
+import AdminTrashLink from '@/components/admin/AdminTrashLink'
 import type { ImportReceipt } from '@/types'
 import * as XLSX from 'xlsx'
 
@@ -142,7 +143,8 @@ export default function ImportsPage() {
             {loading ? 'Đang tải...' : `Tổng ${total} phiếu`}
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          <AdminTrashLink href="/admin/trash" label="Thùng rác hệ thống" />
           <input
             ref={excelInputRef}
             type="file"

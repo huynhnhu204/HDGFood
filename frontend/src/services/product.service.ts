@@ -95,7 +95,11 @@ export const productService = {
 
   /** POST /api/admin/products/bulk-delete — admin action */
   async bulkDelete(ids: number[]) {
-    await api.post('/admin/products/bulk-delete', { ids })
+    const res = await api.post<{
+      message: string
+      blocked?: Array<{ id: number; name: string }>
+    }>('/admin/products/bulk-delete', { ids })
+    return res.data
   },
 
   /** POST /api/admin/products/import — admin action */

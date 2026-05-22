@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { Search, RefreshCw, Plus, Trash2, Pencil, Package, Copy, Eye, Filter, Upload } from 'lucide-react'
 import { toast } from 'sonner'
 import { productService } from '@/services/product.service'
-import AdminTrashTabs from '@/components/admin/AdminTrashTabs'
+import AdminTrashLink from '@/components/admin/AdminTrashLink'
 import api from '@/services/api'
 import type { Category, Product } from '@/types'
 import * as XLSX from 'xlsx'
@@ -36,7 +36,6 @@ export default function ProductsPage() {
   const [selected, setSelected] = useState<Set<number>>(new Set())
   const [bulkLoading, setBulkLoading] = useState(false)
   const [viewMode, setViewMode] = useState<'table' | 'grid'>('grid')
-  const [listTab, setListTab] = useState<'all' | 'trash'>('all')
   const [importLoading, setImportLoading] = useState(false)
   const excelInputRef = useRef<HTMLInputElement>(null)
 
@@ -50,9 +49,7 @@ export default function ProductsPage() {
         paginate: 20,
       }
 
-      if (listTab === 'trash') {
-        params.only_trashed = 1
-      } else if (statusFilter !== 'all') {
+      if (statusFilter !== 'all') {
         params.is_active = statusFilter === 'active' ? 1 : 0
       }
       
@@ -74,7 +71,7 @@ export default function ProductsPage() {
       setLastPage(res.meta.last_page)
     } catch { toast.error('Không tải được danh sách sản phẩm.') }
     finally { setLoading(false) }
-  }, [search, catFilter, statusFilter, stockFilter, priceSort, page, listTab])
+  }, [search, catFilter, statusFilter, stockFilter, priceSort, page])
 
   useEffect(() => { load() }, [load])
   useEffect(() => {
@@ -86,21 +83,42 @@ export default function ProductsPage() {
   const toggleAll = () =>
     setSelected(selected.size === products.length ? new Set() : new Set(products.map(p => p.id)))
 
+  const apiErrorMessage = (err: unknown, fallback: string) => {
+    const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
+    return typeof msg === 'string' && msg.trim() ? msg : fallback
+  }
+
   const handleDelete = async (id: number) => {
     if (!confirm('Xoá sản phẩm này?')) return
-    try { await productService.remove(id); toast.success('Đã xoá.'); load() }
-    catch { toast.error('Xoá thất bại.') }
+    try {
+      await productService.remove(id)
+      toast.success('Đã xoá.')
+      load()
+    } catch (err) {
+      toast.error(apiErrorMessage(err, 'Xoá thất bại.'))
+    }
   }
 
   const handleBulkDelete = async () => {
     if (!selected.size || !confirm(`Xoá ${selected.size} sản phẩm đã chọn?`)) return
     setBulkLoading(true)
     try {
-      await productService.bulkDelete([...selected])
-      toast.success(`Đã xoá ${selected.size} sản phẩm.`)
-      setSelected(new Set()); load()
-    } catch { toast.error('Xoá hàng loạt thất bại.') }
-    finally { setBulkLoading(false) }
+      const res = await productService.bulkDelete([...selected])
+      if (res.blocked?.length) {
+        const names = res.blocked.map((b) => b.name).join(', ')
+        toast.warning(
+          `${res.message} Không xóa được: ${names}. Gỡ sản phẩm khỏi combo hoạt động trước.`
+        )
+      } else {
+        toast.success(res.message || `Đã xoá ${selected.size} sản phẩm.`)
+      }
+      setSelected(new Set())
+      load()
+    } catch (err) {
+      toast.error(apiErrorMessage(err, 'Xoá hàng loạt thất bại.'))
+    } finally {
+      setBulkLoading(false)
+    }
   }
 
   const handleClone = async (p: Product) => {
@@ -182,16 +200,14 @@ export default function ProductsPage() {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="space-y-3">
-          <AdminTrashTabs active={listTab} onChange={setListTab} trashType="product" />
-          <div>
+        <div>
           <h1 className="text-2xl font-black text-slate-900 tracking-tight">Quản lý Sản phẩm</h1>
           <p className="text-sm text-slate-500 mt-0.5">
-            {products.length > 0 && <span className="font-semibold text-slate-700">{products.length}</span>} sản phẩm{listTab === 'trash' ? ' trong thùng rác' : ''}
+            {products.length > 0 && <span className="font-semibold text-slate-700">{products.length}</span>} sản phẩm
           </p>
-          </div>
         </div>
         <div className="flex items-center gap-2">
+          <AdminTrashLink trashType="product" />
           <input
             ref={excelInputRef}
             type="file"

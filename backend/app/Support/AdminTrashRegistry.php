@@ -17,6 +17,7 @@ use App\Models\Review;
 use App\Models\Table;
 use App\Models\User;
 use App\Models\Voucher;
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -171,6 +172,74 @@ class AdminTrashRegistry
         return isset(self::types()[$type]);
     }
 
+    public static function retentionDaysForType(string $type): int
+    {
+        return $type === 'member'
+            ? (int) config('trash.member_retention_days', 30)
+            : (int) config('trash.retention_days', 30);
+    }
+
+    /**
+     * @return array{
+     *   retention_days: int,
+     *   days_in_trash: int|null,
+     *   days_until_purge: int|null,
+     *   purge_at: string|null,
+     *   auto_purge: bool,
+     *   is_overdue: bool,
+     *   purge_hint: string|null
+     * }
+     */
+    public static function retentionMeta(string $type, mixed $deletedAt): array
+    {
+        $retentionDays = self::retentionDaysForType($type);
+        $autoPurge = $type === 'member';
+
+        if ($deletedAt === null || $deletedAt === '') {
+            return [
+                'retention_days' => $retentionDays,
+                'days_in_trash' => null,
+                'days_until_purge' => null,
+                'purge_at' => null,
+                'auto_purge' => $autoPurge,
+                'is_overdue' => false,
+                'purge_hint' => null,
+            ];
+        }
+
+        $deleted = $deletedAt instanceof Carbon
+            ? $deletedAt->copy()
+            : Carbon::parse($deletedAt);
+
+        $purgeAt = $deleted->copy()->addDays($retentionDays);
+        $daysInTrash = (int) $deleted->diffInDays(now());
+        $daysUntilPurge = max(0, $retentionDays - $daysInTrash);
+        $isOverdue = $daysInTrash >= $retentionDays;
+
+        $purgeHint = null;
+        if ($autoPurge) {
+            if ($isOverdue) {
+                $purgeHint = "Quá {$retentionDays} ngày — hệ thống sẽ tự xóa cứng (cron hàng ngày).";
+            } elseif ($daysUntilPurge <= 7) {
+                $purgeHint = "Còn {$daysUntilPurge} ngày trước khi tự xóa cứng.";
+            }
+        } elseif ($isOverdue) {
+            $purgeHint = "Đã quá {$retentionDays} ngày — có thể xóa hẳn để gọn thùng rác (tùy chọn, không tự xóa).";
+        } elseif ($daysUntilPurge <= 7) {
+            $purgeHint = "Còn {$daysUntilPurge} ngày trước mốc nhắc {$retentionDays} ngày.";
+        }
+
+        return [
+            'retention_days' => $retentionDays,
+            'days_in_trash' => $daysInTrash,
+            'days_until_purge' => $daysUntilPurge,
+            'purge_at' => $purgeAt->toIso8601String(),
+            'auto_purge' => $autoPurge,
+            'is_overdue' => $isOverdue,
+            'purge_hint' => $purgeHint,
+        ];
+    }
+
     /** @param  array<string, mixed>  $config */
     public static function trashQuery(string $type, array $config): Builder
     {
@@ -187,6 +256,27 @@ class AdminTrashRegistry
             'product_image' => $modelClass::query()->where('status', 'archived'),
             default => self::softDeleteQuery($modelClass),
         };
+    }
+
+    public static function policyForType(?string $type): string
+    {
+        $days = (int) config('trash.retention_days', 30);
+        $memberDays = (int) config('trash.member_retention_days', 30);
+
+        if ($type === 'member') {
+            return "Tài khoản đã đóng quá {$memberDays} ngày sẽ bị hệ thống tự xóa cứng (cron hàng ngày). "
+                .'Trước hạn vẫn có thể khôi phục nếu email gốc chưa được đăng ký lại.';
+        }
+
+        if ($type && self::isValidType($type)) {
+            $label = self::types()[$type]['label'];
+
+            return "Thùng rác {$label}: khôi phục hoặc xóa vĩnh viễn bất cứ lúc nào. "
+                ."Quá {$days} ngày chỉ là nhắc dọn dẹp — loại này không bị hệ thống tự xóa.";
+        }
+
+        return 'Từng module có thùng rác riêng: bạn chủ động khôi phục / xóa hẳn. '
+            ."Riêng thành viên đã đóng tài khoản: hệ thống tự xóa cứng sau {$memberDays} ngày.";
     }
 
     /** @param  class-string<Model>  $modelClass */
@@ -225,7 +315,7 @@ class AdminTrashRegistry
 
         $deletedAt = $row->deleted_at ?? $row->updated_at ?? $row->created_at;
 
-        return [
+        return array_merge([
             'type' => $type,
             'type_label' => $config['label'],
             'id' => (int) $row->getKey(),
@@ -233,6 +323,6 @@ class AdminTrashRegistry
             'subtitle' => $subtitle,
             'deleted_at' => $deletedAt?->toIso8601String(),
             'admin_path' => $config['admin_path'],
-        ];
+        ], self::retentionMeta($type, $deletedAt));
     }
 }

@@ -10,6 +10,7 @@ import {
 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { reviewService } from '@/services/review.service'
+import AdminTrashLink from '@/components/admin/AdminTrashLink'
 import { toast } from 'sonner'
 import { format } from 'date-fns'
 import { vi } from 'date-fns/locale'
@@ -132,14 +133,17 @@ export default function ReviewManagementPage() {
           </h1>
           <p className="text-[13px] font-medium text-slate-400 mt-1">Duyệt, phản hồi và theo dõi chất lượng món ăn</p>
         </div>
-        <button
-          onClick={fetchData}
-          disabled={loading}
-          className="px-6 py-3 bg-[#ed2a2a] text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-slate-900 transition-all shadow-lg shadow-red-500/20 disabled:opacity-50 flex items-center gap-2"
-        >
-          {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
-          Làm mới
-        </button>
+        <div className="flex items-center gap-2">
+          <AdminTrashLink trashType="review" />
+          <button
+            onClick={fetchData}
+            disabled={loading}
+            className="px-6 py-3 bg-[#ed2a2a] text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-slate-900 transition-all shadow-lg shadow-red-500/20 disabled:opacity-50 flex items-center gap-2"
+          >
+            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+            Làm mới
+          </button>
+        </div>
       </div>
 
       {/* Stats Cards */}

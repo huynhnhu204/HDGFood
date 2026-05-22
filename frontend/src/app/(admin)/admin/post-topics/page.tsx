@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { Search, RefreshCw, Plus, Trash2, Pencil, Power, PowerOff, BookOpen, MoreVertical, FileText } from 'lucide-react'
 import { toast } from 'sonner'
 import { postTopicService } from '@/services/post-topic.service'
+import AdminTrashLink from '@/components/admin/AdminTrashLink'
 import type { PostTopic } from '@/types'
 
 const fmtDate = (s: string) => new Date(s).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' })
@@ -98,12 +99,15 @@ export default function PostTopicsPage() {
           </h1>
           <p className="text-[13px] font-medium text-slate-500 mt-1">Quản lý {total} danh mục cho Blog / Tin tức</p>
         </div>
-        <button
-          onClick={() => router.push('/admin/post-topics/create')}
-          className="hidden lg:flex items-center justify-center gap-2 px-6 py-3.5 sm:py-3 bg-[#ed2a2a] text-white rounded-xl text-sm font-bold shadow-lg shadow-red-500/20 transition-all hover:scale-[1.02] active:scale-95"
-        >
-          <Plus className="w-5 h-5" /> Thêm Chủ Đề
-        </button>
+        <div className="flex items-center gap-3">
+          <AdminTrashLink trashType="post_topic" />
+          <button
+            onClick={() => router.push('/admin/post-topics/create')}
+            className="hidden lg:flex items-center justify-center gap-2 px-6 py-3.5 sm:py-3 bg-[#ed2a2a] text-white rounded-xl text-sm font-bold shadow-lg shadow-red-500/20 transition-all hover:scale-[1.02] active:scale-95"
+          >
+            <Plus className="w-5 h-5" /> Thêm Chủ Đề
+          </button>
+        </div>
       </div>
 
       {/* Stats - Horizontal Scrollable on Mobile */}

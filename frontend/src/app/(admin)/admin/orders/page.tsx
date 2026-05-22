@@ -2,10 +2,11 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { Search, RefreshCw, Eye, UtensilsCrossed, Plus, Pencil, Trash2, SlidersHorizontal, RotateCcw, Check, X, Banknote } from 'lucide-react'
 import { toast } from 'sonner'
 import { orderService } from '@/services/order.service'
+import AdminTrashLink from '@/components/admin/AdminTrashLink'
 import type { Order, OrderStatus } from '@/types'
 import { tableService } from '@/services/table.service'
 
@@ -197,8 +198,13 @@ function ActionButtons({
 }
 
 // ── Main Page ─────────────────────────────────────────────────────────────
+const ORDER_STATUSES: OrderStatus[] = [
+  'pending', 'confirmed', 'preparing', 'ready', 'serving', 'completed', 'cancelled',
+]
+
 export default function OrdersPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [orders,      setOrders]      = useState<Order[]>([])
   const [loading,     setLoading]     = useState(true)
   const [updating,    setUpdating]    = useState<number | null>(null)
@@ -259,7 +265,11 @@ export default function OrdersPage() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
     if (params.get('payment_pending') === '1') setShowPaymentPending(true)
-  }, [])
+    const statusParam = searchParams.get('status')
+    if (statusParam && ORDER_STATUSES.includes(statusParam as OrderStatus)) {
+      setStatusQuickFilter(statusParam as OrderStatus)
+    }
+  }, [searchParams])
 
   useEffect(() => {
     orderService
@@ -389,7 +399,8 @@ export default function OrdersPage() {
           </h1>
           <p className="text-sm text-slate-500 mt-1">{loading ? 'Đang tải dữ liệu...' : `Tìm thấy tổng cộng ${meta.total} đơn`}</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          <AdminTrashLink href="/admin/orders?status=cancelled" label="Đơn đã hủy" />
           {paymentPendingTotal > 0 && (
             <button
               type="button"

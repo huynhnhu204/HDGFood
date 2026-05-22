@@ -5,6 +5,7 @@ import { Loader2, Plus, Trash2, X } from 'lucide-react'
 import { toast } from 'sonner'
 import type { LoyaltyReward } from '@/types'
 import { loyaltyAdminService } from '@/services/admin/loyalty-admin.service'
+import AdminTrashLink from '@/components/admin/AdminTrashLink'
 
 const EMPTY_FORM: Partial<LoyaltyReward> = {
   name: '',
@@ -77,12 +78,15 @@ export default function LoyaltyRewardsAdminPage() {
           <h1 className="text-2xl font-black text-slate-800">Quản lý phần thưởng Loyalty</h1>
           <p className="text-sm text-slate-500 mt-1">Thiết lập các mốc điểm để thành viên đổi voucher.</p>
         </div>
-        <button
-          onClick={() => setOpenCreateModal(true)}
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[#ed2a2a] text-white text-sm font-black"
-        >
-          <Plus className="w-4 h-4" /> Tạo phần thưởng
-        </button>
+        <div className="flex items-center gap-2">
+          <AdminTrashLink trashType="loyalty_reward" />
+          <button
+            onClick={() => setOpenCreateModal(true)}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[#ed2a2a] text-white text-sm font-black"
+          >
+            <Plus className="w-4 h-4" /> Tạo phần thưởng
+          </button>
+        </div>
       </div>
 
       <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">

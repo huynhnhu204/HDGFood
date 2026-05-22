@@ -8,6 +8,7 @@ import ImageUploaderV2 from '@/components/products/ImageUploaderV2'
 import api from '@/services/api'
 import { productService, type ProductPayload } from '@/services/product.service'
 import type { Category, Product } from '@/types'
+import AdminTrashLink from '@/components/admin/AdminTrashLink'
 
 const EMPTY_FORM: ProductPayload = {
   category_id: 0,
@@ -114,15 +115,18 @@ export default function ProductImagesPage() {
               Chọn sản phẩm, rồi thao tác upload, kéo-thả sắp xếp, đặt ảnh chính, archive hoặc xóa ảnh.
             </p>
           </div>
-          <button
-            type="button"
-            disabled={!selectedProduct}
-            onClick={() => selectedProduct && router.push(`/admin/products/${selectedProduct.id}/edit`)}
-            className="inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            <Pencil className="h-4 w-4" />
-            Mở trang sửa sản phẩm
-          </button>
+          <div className="flex flex-wrap items-center gap-2">
+            <AdminTrashLink trashType="product_image" label="Ảnh đã xóa" />
+            <button
+              type="button"
+              disabled={!selectedProduct}
+              onClick={() => selectedProduct && router.push(`/admin/products/${selectedProduct.id}/edit`)}
+              className="inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <Pencil className="h-4 w-4" />
+              Mở trang sửa sản phẩm
+            </button>
+          </div>
         </div>
 
         <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">

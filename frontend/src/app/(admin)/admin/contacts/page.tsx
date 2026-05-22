@@ -8,6 +8,7 @@ import {
   CheckCircle2, Loader2, User, Phone
 } from 'lucide-react'
 import { contactService, type Contact } from '@/services/contact.service'
+import AdminTrashLink from '@/components/admin/AdminTrashLink'
 import { format } from 'date-fns'
 import { vi } from 'date-fns/locale'
 import { toast } from 'sonner'
@@ -61,6 +62,8 @@ export default function ContactListPage() {
           <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">Tiếp nhận & Xử lý phản hồi từ khách hàng</p>
         </div>
 
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+          <AdminTrashLink href="/admin/trash" label="Thùng rác hệ thống" />
         <form onSubmit={handleSearch} className="flex items-center gap-2">
            <div className="relative group">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-[#ed2a2a] transition-colors" />
@@ -75,6 +78,7 @@ export default function ContactListPage() {
               Tìm
            </button>
         </form>
+        </div>
       </div>
 
       <div className="flex flex-wrap items-center gap-2 mb-2 px-2">

@@ -84,11 +84,6 @@ export const voucherService = {
     await api.post('/admin/vouchers/bulk-delete', { ids })
   },
 
-  async seed() {
-    const res = await api.post<{ message: string }>('/admin/vouchers/seed')
-    return res.data
-  },
-
   async validate(code: string, subtotal: number, productIds?: number[]) {
     const res = await api.post<{ valid: boolean; voucher: Voucher; discount: number }>('/vouchers/validate', {
       code,

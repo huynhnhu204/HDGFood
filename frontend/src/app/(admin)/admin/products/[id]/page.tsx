@@ -54,7 +54,10 @@ export default function ProductDetailPage() {
       await productService.remove(product.id)
       toast.success('Đã xoá sản phẩm.')
       router.push('/admin/products')
-    } catch { toast.error('Xoá thất bại.') }
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
+      toast.error(typeof msg === 'string' && msg.trim() ? msg : 'Xoá thất bại.')
+    }
   }
 
   const handleClone = async () => {

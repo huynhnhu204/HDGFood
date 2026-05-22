@@ -422,7 +422,7 @@ class ProductController extends Controller
 
     public function destroy(Product $product)
     {
-        $inRunningCombo = DB::table('combo_products as cp')
+        $runningCombos = DB::table('combo_products as cp')
             ->join('combo_groups as cg', 'cg.id', '=', 'cp.combo_group_id')
             ->join('combos as c', 'c.id', '=', 'cg.combo_id')
             ->where('cp.product_id', $product->id)
@@ -433,11 +433,16 @@ class ProductController extends Controller
             ->where(function ($q) {
                 $q->whereNull('c.end_date')->orWhere('c.end_date', '>=', now());
             })
-            ->exists();
+            ->distinct()
+            ->pluck('c.name');
 
-        if ($inRunningCombo) {
+        if ($runningCombos->isNotEmpty()) {
+            $names = $runningCombos->take(5)->implode(', ');
+            $suffix = $runningCombos->count() > 5 ? '…' : '';
+
             return response()->json([
-                'message' => 'Sản phẩm đang thuộc combo hoạt động. Vui lòng gỡ khỏi combo trước khi xóa.',
+                'message' => "Sản phẩm đang thuộc combo hoạt động ({$names}{$suffix}). Vui lòng gỡ khỏi combo trước khi xóa.",
+                'combos' => $runningCombos->values()->all(),
             ], 422);
         }
 

@@ -11,9 +11,11 @@ import {
   Loader2,
   AlertTriangle,
   ExternalLink,
+  ArrowLeft,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { trashService, type TrashItem, type TrashItemType } from '@/services/trash.service'
+import { TRASH_MODULE_PATHS, TRASH_TYPE_LABELS } from '@/lib/trashLabels'
 
 function formatDeletedAt(iso: string | null) {
   if (!iso) return '—'
@@ -35,11 +37,21 @@ function TrashPageContent() {
   const [lastPage, setLastPage] = useState(1)
   const [total, setTotal] = useState(0)
   const [actingId, setActingId] = useState<string | null>(null)
+  const [policiesByType, setPoliciesByType] = useState<Record<string, string>>({})
+  const [defaultPolicy, setDefaultPolicy] = useState<string | null>(null)
+  const [retentionDays, setRetentionDays] = useState(30)
+  const [memberRetentionDays, setMemberRetentionDays] = useState(30)
+  const [listPolicy, setListPolicy] = useState<string | null>(null)
+  const [listAutoPurge, setListAutoPurge] = useState(false)
 
   const loadSummary = useCallback(async () => {
     try {
       const res = await trashService.summary()
       setSummary(res.counts)
+      setDefaultPolicy(res.policy ?? null)
+      setPoliciesByType(res.policies ?? {})
+      setRetentionDays(res.retention_days ?? 30)
+      setMemberRetentionDays(res.member_retention_days ?? 30)
     } catch {
       /* ignore */
     }
@@ -57,6 +69,8 @@ function TrashPageContent() {
       setItems(res.data)
       setLastPage(res.meta.last_page)
       setTotal(res.meta.total)
+      setListPolicy(res.meta.policy ?? null)
+      setListAutoPurge(Boolean(res.meta.auto_purge))
     } catch {
       toast.error('Không tải được thùng rác.')
     } finally {
@@ -77,6 +91,19 @@ function TrashPageContent() {
     setPage(1)
   }, [typeFilter, q])
 
+  useEffect(() => {
+    setTypeFilter(initialType)
+  }, [initialType])
+
+  const moduleBack =
+    typeFilter && typeFilter in TRASH_MODULE_PATHS
+      ? TRASH_MODULE_PATHS[typeFilter as TrashItemType]
+      : null
+  const typeTitle =
+    typeFilter && typeFilter in TRASH_TYPE_LABELS
+      ? TRASH_TYPE_LABELS[typeFilter as TrashItemType]
+      : null
+
   const handleRestore = async (item: TrashItem) => {
     const key = `${item.type}-${item.id}`
     setActingId(key)
@@ -94,8 +121,11 @@ function TrashPageContent() {
   }
 
   const handlePurge = async (item: TrashItem) => {
-    if (item.type === 'member') {
-      toast.error('Thành viên đã đóng không xóa vĩnh viễn từ đây.')
+    if (item.type === 'member' || item.auto_purge) {
+      toast.error(
+        item.purge_hint
+          ?? `Thành viên đã đóng không xóa vĩnh viễn từ đây. Hệ thống tự xóa sau ${item.retention_days} ngày.`
+      )
       return
     }
     if (!confirm(`Xóa vĩnh viễn "${item.title}"? Không thể hoàn tác.`)) return
@@ -116,17 +146,52 @@ function TrashPageContent() {
 
   const typeOptions = Object.entries(summary).filter(([, c]) => c > 0)
 
+  const isMemberTrash = typeFilter === 'member' || listAutoPurge
+
+  const displayPolicy =
+    typeFilter && policiesByType[typeFilter]
+      ? policiesByType[typeFilter]
+      : listPolicy ?? defaultPolicy
+
+  const retentionColumnLabel = isMemberTrash
+    ? `Tự xóa (${memberRetentionDays} ngày)`
+    : `Nhắc nhở (${retentionDays} ngày)`
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
         <div>
+          {moduleBack && (
+            <Link
+              href={moduleBack}
+              className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-500 hover:text-[#ed2a2a] mb-2"
+            >
+              <ArrowLeft className="w-3.5 h-3.5" />
+              Quay lại module
+            </Link>
+          )}
           <h1 className="text-2xl font-black text-slate-900 uppercase tracking-tight flex items-center gap-2">
             <Trash2 className="w-7 h-7 text-slate-700" />
-            Thùng rác
+            {typeTitle ? `Thùng rác — ${typeTitle}` : 'Thùng rác'}
           </h1>
           <p className="text-sm text-slate-500 mt-1 font-medium">
-            Khôi phục hoặc xóa vĩnh viễn mục đã xóa từ các module quản trị.
+            {isMemberTrash
+              ? 'Khôi phục tài khoản đã đóng hoặc chờ hệ thống tự dọn sau thời hạn.'
+              : typeFilter
+                ? 'Khôi phục hoặc xóa vĩnh viễn — thao tác hoàn toàn do bạn quyết định.'
+                : 'Mỗi module có quy tắc thùng rác riêng; chọn loại bên dưới để xem chi tiết.'}
           </p>
+          {displayPolicy && (
+            <p
+              className={`text-xs rounded-lg px-3 py-2 mt-2 font-medium max-w-2xl border ${
+                isMemberTrash
+                  ? 'text-amber-800 bg-amber-50 border-amber-200'
+                  : 'text-slate-600 bg-slate-50 border-slate-200'
+              }`}
+            >
+              {displayPolicy}
+            </p>
+          )}
         </div>
         <button
           type="button"
@@ -162,7 +227,7 @@ function TrashPageContent() {
                 : 'bg-white border-slate-200 text-slate-600'
             }`}
           >
-            {type.replace(/_/g, ' ')} ({count})
+            {(TRASH_TYPE_LABELS[type as TrashItemType] ?? type.replace(/_/g, ' '))} ({count})
           </button>
         ))}
       </div>
@@ -195,6 +260,7 @@ function TrashPageContent() {
                   <th className="px-4 py-3">Loại</th>
                   <th className="px-4 py-3">Tên / mô tả</th>
                   <th className="px-4 py-3">Thời gian</th>
+                  <th className="px-4 py-3">{retentionColumnLabel}</th>
                   <th className="px-4 py-3 text-right">Thao tác</th>
                 </tr>
               </thead>
@@ -218,6 +284,33 @@ function TrashPageContent() {
                       <td className="px-4 py-3 text-slate-500 text-xs whitespace-nowrap">
                         {formatDeletedAt(item.deleted_at)}
                       </td>
+                      <td className="px-4 py-3 text-xs">
+                        {item.days_in_trash != null ? (
+                          <div className="space-y-1">
+                            <span className="text-slate-600 font-medium">
+                              Đã {item.days_in_trash} ngày
+                            </span>
+                            {item.is_overdue ? (
+                              <span className="block text-red-600 font-bold">Quá hạn</span>
+                            ) : item.days_until_purge != null && item.days_until_purge <= 7 ? (
+                              <span className="block text-amber-600 font-bold">
+                                Còn {item.days_until_purge} ngày
+                              </span>
+                            ) : item.days_until_purge != null ? (
+                              <span className="block text-slate-400">
+                                Còn {item.days_until_purge} ngày
+                              </span>
+                            ) : null}
+                            {item.purge_hint && (
+                              <span className="block text-[10px] text-slate-500 leading-snug max-w-[200px]">
+                                {item.purge_hint}
+                              </span>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-slate-400">—</span>
+                        )}
+                      </td>
                       <td className="px-4 py-3">
                         <div className="flex justify-end gap-2 flex-wrap">
                           <Link
@@ -236,7 +329,7 @@ function TrashPageContent() {
                             <RotateCcw className="w-3.5 h-3.5" />
                             Khôi phục
                           </button>
-                          {item.type !== 'member' && (
+                          {!item.auto_purge && (
                             <button
                               type="button"
                               disabled={busy}

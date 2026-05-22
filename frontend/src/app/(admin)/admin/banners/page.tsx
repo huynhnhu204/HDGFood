@@ -11,6 +11,7 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { bannerService } from '@/services/banner.service'
+import AdminTrashLink from '@/components/admin/AdminTrashLink'
 import type { Banner } from '@/types'
 import Image from 'next/image'
 
@@ -126,12 +127,15 @@ export default function BannersPage() {
           </div>
         </div>
 
-        <Link
-          href="/admin/banners/create"
-          className="relative z-10 flex items-center justify-center gap-2 px-6 py-3.5 bg-[#ed2a2a] text-white rounded-xl text-[14px] font-bold shadow-[0_4px_20px_rgba(237,42,42,0.3)] hover:scale-[1.02] active:scale-95 transition-all w-full sm:w-auto"
-        >
-          <Plus className="w-5 h-5" /> Tải Banner Trực Tiếp
-        </Link>
+        <div className="relative z-10 flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
+          <AdminTrashLink trashType="banner" className="justify-center" />
+          <Link
+            href="/admin/banners/create"
+            className="flex items-center justify-center gap-2 px-6 py-3.5 bg-[#ed2a2a] text-white rounded-xl text-[14px] font-bold shadow-[0_4px_20px_rgba(237,42,42,0.3)] hover:scale-[1.02] active:scale-95 transition-all"
+          >
+            <Plus className="w-5 h-5" /> Tải Banner Trực Tiếp
+          </Link>
+        </div>
       </div>
 
       {/* ── FILTER BAR ── */}

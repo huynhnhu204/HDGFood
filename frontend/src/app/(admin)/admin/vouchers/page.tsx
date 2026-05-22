@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { Search, RefreshCw, Plus, Trash2, Pencil, Power, PowerOff, Ticket, Gift, Users, Eye } from 'lucide-react'
 import { toast } from 'sonner'
 import { voucherService } from '@/services/voucher.service'
+import AdminTrashLink from '@/components/admin/AdminTrashLink'
 import type { Voucher } from '@/types'
 
 const fmt     = (n: number) => n.toLocaleString('vi-VN') + 'đ'
@@ -76,17 +77,6 @@ export default function VouchersPage() {
     catch { toast.error('Cập nhật thất bại') }
   }
 
-  const handleSeed = async () => {
-    if (!confirm('Tải dữ liệu mẫu cho Vouchers? Thao tác này có thể tạo trùng lặp nếu đã có dữ liệu.')) return
-    setLoading(true)
-    try {
-      const res = await voucherService.seed()
-      toast.success(res.message)
-      load()
-    } catch { toast.error('Lỗi khi tải dữ liệu mẫu') }
-    finally { setLoading(false) }
-  }
-
   const active  = vouchers.filter(v => v.is_valid).length
   const expired = vouchers.filter(v => !v.is_valid).length
 
@@ -111,13 +101,7 @@ export default function VouchersPage() {
           <p className="text-[13px] font-medium text-slate-500 mt-1">Đang quản lý {total} mã giảm giá trên hệ thống</p>
         </div>
         <div className="flex items-center gap-3">
-          <button
-            onClick={handleSeed}
-            disabled={loading}
-            className="hidden lg:flex items-center justify-center gap-2 px-5 py-3.5 sm:py-3 bg-slate-800 text-white rounded-xl text-sm font-bold hover:bg-slate-900 shadow-lg shadow-slate-900/10 transition-all hover:scale-[1.02] active:scale-95 disabled:opacity-50"
-          >
-            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} /> Dữ liệu mẫu
-          </button>
+          <AdminTrashLink trashType="voucher" />
           <button
             onClick={() => router.push('/admin/vouchers/create')}
             className="hidden lg:flex items-center justify-center gap-2 px-6 py-3.5 sm:py-3 bg-gradient-to-r from-[#ed2a2a] to-[#d12525] text-white rounded-xl text-sm font-bold hover:from-[#f53535] hover:to-[#e02b2b] shadow-lg shadow-red-500/20 transition-all hover:scale-[1.02] active:scale-95"
