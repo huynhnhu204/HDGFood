@@ -32,5 +32,17 @@ return Application::configure(basePath: dirname(__DIR__))
                 return response()->json(['message' => 'Chưa đăng nhập hoặc phiên đã hết hạn.'], 401);
             }
         });
+
+        // Xử lý upload vượt post_max_size/upload_max_filesize
+        $exceptions->render(function (\Illuminate\Http\Exceptions\PostTooLargeException $e, $request) {
+            if ($request->is('api/*') || $request->expectsJson()) {
+                $maxPost = (string) ini_get('post_max_size');
+                $maxUpload = (string) ini_get('upload_max_filesize');
+
+                return response()->json([
+                    'message' => "Tệp tải lên quá lớn. Giới hạn hiện tại: post_max_size={$maxPost}, upload_max_filesize={$maxUpload}.",
+                ], 413);
+            }
+        });
     })
     ->create();

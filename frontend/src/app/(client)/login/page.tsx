@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { Eye, EyeOff, Loader2, Lock, Mail, ArrowLeft } from 'lucide-react'
+import { Eye, EyeOff, Loader2, Lock, Mail, ArrowLeft, ArrowRight, UtensilsCrossed } from 'lucide-react'
 import { toast } from 'sonner'
 import { authService } from '@/services/auth.service'
 import { motion } from 'framer-motion'
@@ -128,13 +128,22 @@ export default function LoginPage() {
              </div>
           </div>
 
-          <button 
-            type="submit"
-            disabled={loading}
-            className="w-full py-4.5 bg-[#ed2a2a] text-white rounded-full text-sm font-black uppercase tracking-widest shadow-xl shadow-red-500/20 hover:bg-red-700 hover:scale-[1.01] active:scale-95 transition-all flex items-center justify-center gap-3 mt-4"
-          >
-            {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <span>Vào ăn thôi!</span>}
-          </button>
+         <button 
+           type="submit"
+           disabled={loading}
+           className="group relative w-full overflow-hidden py-3.5 bg-gradient-to-r from-[#ff4d4d] via-[#ed2a2a] to-[#c81e1e] text-white rounded-full text-sm font-black uppercase tracking-widest shadow-lg shadow-red-500/25 hover:shadow-red-500/40 hover:scale-[1.01] active:scale-[0.98] transition-all duration-300 flex items-center justify-center gap-2 mt-4 disabled:opacity-70 disabled:cursor-not-allowed disabled:hover:scale-100"
+         >
+           <span className="pointer-events-none absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/35 to-transparent skew-x-12 group-hover:translate-x-full transition-transform duration-700 ease-out" />
+           {loading ? (
+             <Loader2 className="w-5 h-5 animate-spin" />
+           ) : (
+             <>
+               <UtensilsCrossed className="w-4 h-4 transition-transform group-hover:-rotate-12" />
+               <span>Vào ăn thôi!</span>
+               <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
+             </>
+           )}
+         </button>
         </form>
 
         <div className="relative py-2">

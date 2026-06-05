@@ -14,9 +14,10 @@ import Image                      from 'next/image'
 import Link                       from 'next/link'
 import { blogPostPublicPath }     from '@/lib/client-paths'
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL?.replace('/api', '') ?? 'http://localhost:8000'
+const API_URL = (process.env.NEXT_PUBLIC_API_URL?.replace('/api', '') ?? 'http://localhost:8000')
+  .replace('127.0.0.1', 'localhost')
 const thumbUrl = (p?: string | null) =>
-  p ? (p.startsWith('http') ? p : `${API_URL}/storage/${p}`) : null
+  p ? (p.startsWith('http') ? p.replace('127.0.0.1', 'localhost') : `${API_URL}/storage/${p}`) : null
 
 const fmtDate = (s?: string | null) =>
   s
@@ -242,7 +243,7 @@ export default function PostDetailPage() {
             {/* Thumbnail */}
             {thumb ? (
               <div className="relative w-full h-64 sm:h-80 bg-slate-100">
-                <Image src={thumb} alt={post.title} fill className="object-cover" />
+                <Image src={thumb} alt={post.title} fill unoptimized className="object-cover" />
                 {/* Gradient overlay */}
                 <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent" />
                 {/* Badges on image */}

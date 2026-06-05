@@ -13,6 +13,7 @@ import { tableService } from '@/services/table.service'
 import AdminTrashLink from '@/components/admin/AdminTrashLink'
 import type { Table } from '@/types'
 import Pusher from 'pusher-js'
+import { formatPrice as formatMoney } from '@/lib/format'
 
 const STATUS_CONFIG = {
   available: {
@@ -40,8 +41,6 @@ const STATUS_CONFIG = {
     icon: ChefHat
   }
 }
-
-const formatMoney = (value?: number | null) => (Number(value ?? 0)).toLocaleString('vi-VN')
 
 export default function TableListPage() {
   const router = useRouter()

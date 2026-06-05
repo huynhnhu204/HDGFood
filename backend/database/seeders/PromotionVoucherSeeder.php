@@ -78,6 +78,40 @@ class PromotionVoucherSeeder extends Seeder
                 ]
             )->products()->sync([$lauThai->id]);
         }
+
+        // 5. Seed khuyến mãi cho năm sau (để test chiến dịch tương lai)
+        $nextYear = now()->addYear()->year;
+        $nextYearStart = now()->addYear()->startOfYear()->addDays(14);
+        $nextYearEnd = now()->addYear()->startOfYear()->addMonths(2)->subDay();
+
+        $gaNuong = Product::where('slug', 'ga-nuong-mat-ong')->first();
+        if ($gaNuong) {
+            Promotion::updateOrCreate(
+                ['name' => "Khai xuân {$nextYear} — Gà nướng giảm 18%"],
+                [
+                    'discount_type'  => 'percent',
+                    'discount_value' => 18,
+                    'start_date'     => $nextYearStart,
+                    'end_date'       => $nextYearEnd,
+                    'is_active'      => true,
+                ]
+            )->products()->sync([$gaNuong->id]);
+        }
+
+        $caHoi = Product::where('slug', 'ca-hoi-ap-chao')->first();
+        if ($caHoi) {
+            Promotion::updateOrCreate(
+                ['name' => "Summer {$nextYear} — Cá hồi áp chảo giảm 35.000đ"],
+                [
+                    'discount_type'    => 'amount',
+                    'discount_value'   => 35000,
+                    'min_order_amount' => 180000,
+                    'start_date'       => now()->addYear()->startOfYear()->addMonths(5),
+                    'end_date'         => now()->addYear()->startOfYear()->addMonths(7)->subDay(),
+                    'is_active'        => true,
+                ]
+            )->products()->sync([$caHoi->id]);
+        }
     }
 
     private function createVouchers(): void

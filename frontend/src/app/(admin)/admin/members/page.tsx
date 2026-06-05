@@ -133,7 +133,7 @@ export default function MembersPage() {
             placeholder="Tìm tên, SĐT, email..."
             className="w-full pl-9 pr-3 py-2.5 bg-slate-50 border-transparent border focus:bg-white focus:border-red-400 rounded-xl text-sm font-semibold focus:outline-none transition-all" />
         </div>
-        <select value={tier} onChange={e => { setTier(e.target.value as any); setPage(1) }}
+        <select value={tier} onChange={(e) => { setTier(e.target.value as UserTier | ''); setPage(1) }}
           className="bg-slate-50 border-transparent border rounded-xl px-4 py-2.5 text-sm font-bold focus:bg-white focus:border-red-400 focus:outline-none cursor-pointer">
           <option value="">Tất cả tier</option>
           <option value="regular">👤 Thường</option>
@@ -143,7 +143,7 @@ export default function MembersPage() {
         </select>
         <select
           value={status}
-          onChange={e => { setStatus(e.target.value as any); setPage(1) }}
+          onChange={(e) => { setStatus(e.target.value as 'active' | 'inactive' | ''); setPage(1) }}
           className="bg-slate-50 border-transparent border rounded-xl px-4 py-2.5 text-sm font-bold focus:bg-white focus:border-red-400 focus:outline-none cursor-pointer"
         >
           <option value="">Trạng thái</option>

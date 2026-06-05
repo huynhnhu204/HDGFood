@@ -5,6 +5,7 @@ import { Combo } from '@/types/combo'
 import { Clock, Minus, Plus, Sparkles, UtensilsCrossed } from 'lucide-react'
 import { useState } from 'react'
 import { motion } from 'framer-motion'
+import { formatPrice } from '@/lib/format'
 
 interface ComboCardProps {
   combo: Combo
@@ -22,10 +23,6 @@ export default function ComboCard({ combo, onSelect, featuredCarousel, savePerce
   const savingsAmount = combo.base_price > combo.final_price ? combo.base_price - combo.final_price : 0
 
   const isExpired = combo.end_date && new Date(combo.end_date) < new Date()
-
-  const formatPrice = (price: number) => {
-    return Math.round(price).toLocaleString('vi-VN')
-  }
 
   // Generate product names summary for SEO
   const productSummary = combo.groups

@@ -112,6 +112,17 @@ api.interceptors.response.use(
       return Promise.reject(error)
     }
 
+    // Đã đăng nhập nhưng không đủ quyền (ví dụ user thường cố mở link admin).
+    if (status === 403 && typeof window !== 'undefined') {
+      const path = window.location.pathname
+      if (path.startsWith('/admin')) {
+        toast.error(data?.message || 'Bạn không có quyền truy cập khu vực này.')
+        setTimeout(() => {
+          window.location.href = '/403'
+        }, 800)
+      }
+    }
+
     if (status === 401 && typeof window !== 'undefined') {
       const path = window.location.pathname
       const isLoginPage = path === '/login' || path === '/register' || path === '/admin/login'

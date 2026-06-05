@@ -4,14 +4,13 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { Combo } from '@/types/combo'
 import { Clock3, ShoppingBag, Tag } from 'lucide-react'
+import { formatPrice } from '@/lib/format'
 
 interface ComboCatalogCardProps {
   combo: Combo
   onSelect?: (combo: Combo) => void
   detailHref: string
 }
-
-const formatPrice = (value: number) => Math.round(value || 0).toLocaleString('vi-VN')
 
 export default function ComboCatalogCard({ combo, onSelect, detailHref }: ComboCatalogCardProps) {
   const isExpired = combo.end_date && new Date(combo.end_date) < new Date()

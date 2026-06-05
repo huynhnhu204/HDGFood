@@ -6,61 +6,57 @@ use App\Models\Post;
 use App\Models\PostTopic;
 use App\Models\User;
 use Illuminate\Database\Seeder;
-use Illuminate\Support\Str;
 
 class PostTopicPostSeeder extends Seeder
 {
     public function run(): void
     {
-        /* ════════════════════════════════════════
-         | 1. CHỦ ĐỀ BÀI VIẾT (Post Topics)
-         ════════════════════════════════════════ */
         $topics = [
-            [
-                'name'             => 'Kiến thức dinh dưỡng',
-                'slug'             => 'kien-thuc-dinh-duong',
-                'description'      => 'Các bài viết chia sẻ kiến thức về dinh dưỡng, sức khỏe và chế độ ăn uống lành mạnh.',
-                'status'           => 'active',
-                'meta_title'       => 'Kiến thức dinh dưỡng | HDG Food Blog',
-                'meta_description' => 'Khám phá các bí quyết ăn uống lành mạnh, cân bằng dinh dưỡng và duy trì sức khỏe mỗi ngày từ HDG Food.',
-            ],
             [
                 'name'             => 'Tin khuyến mãi',
                 'slug'             => 'tin-khuyen-mai',
-                'description'      => 'Cập nhật các chương trình ưu đãi, khuyến mãi hấp dẫn từ HDG Food.',
+                'description'      => 'Cập nhật các chương trình ưu đãi, voucher và flash sale mới nhất của HDG Food.',
                 'status'           => 'active',
-                'meta_title'       => 'Tin khuyến mãi HDG Food',
-                'meta_description' => 'Xem ngay các chương trình ưu đãi, giảm giá và khuyến mãi đặc biệt mới nhất từ HDG Food.',
+                'meta_title'       => 'Tin khuyến mãi | HDG Food',
+                'meta_description' => 'Theo dõi các chương trình khuyến mãi, voucher và ưu đãi hấp dẫn tại HDG Food.',
             ],
             [
-                'name'             => 'Giới thiệu món ăn',
-                'slug'             => 'gioi-thieu-mon-an',
-                'description'      => 'Hành trình khám phá hương vị và câu chuyện đằng sau những món ăn độc đáo tại HDG Food.',
+                'name'             => 'Thông báo hệ thống',
+                'slug'             => 'thong-bao-he-thong',
+                'description'      => 'Thông báo bảo trì, thay đổi chính sách và cập nhật quan trọng của website HDG Food.',
                 'status'           => 'active',
-                'meta_title'       => 'Giới thiệu món ăn đặc sắc | HDG Food',
-                'meta_description' => 'Khám phá những món ăn ngon, hương vị độc đáo và quy trình chế biến tỉ mỉ tại HDG Food.',
+                'meta_title'       => 'Thông báo hệ thống | HDG Food',
+                'meta_description' => 'Nắm bắt nhanh các thông báo mới nhất liên quan đến website HDG Food.',
             ],
             [
-                'name'             => 'Công thức nấu ăn',
-                'slug'             => 'cong-thuc-nau-an',
-                'description'      => 'Tổng hợp công thức nấu những món ăn ngon, đơn giản dành cho gia đình.',
+                'name'             => 'Cập nhật tính năng',
+                'slug'             => 'cap-nhat-tinh-nang',
+                'description'      => 'Giới thiệu các tính năng mới giúp đặt món và quản lý đơn hàng tiện lợi hơn.',
                 'status'           => 'active',
-                'meta_title'       => 'Công thức nấu ăn ngon | HDG Food',
-                'meta_description' => 'Hàng trăm công thức nấu ăn ngon, đơn giản và dễ thực hiện tại nhà từ HDG Food.',
+                'meta_title'       => 'Cập nhật tính năng mới | HDG Food',
+                'meta_description' => 'Theo dõi các bản cập nhật tính năng mới trên website HDG Food.',
+            ],
+            [
+                'name'             => 'Hướng dẫn sử dụng',
+                'slug'             => 'huong-dan-su-dung',
+                'description'      => 'Hướng dẫn đặt món, theo dõi đơn hàng, thanh toán và sử dụng voucher trên website.',
+                'status'           => 'active',
+                'meta_title'       => 'Hướng dẫn sử dụng website HDG Food',
+                'meta_description' => 'Các bài viết hướng dẫn chi tiết cách sử dụng website HDG Food.',
             ],
             [
                 'name'             => 'Câu chuyện HDG',
                 'slug'             => 'cau-chuyen-hdg',
-                'description'      => 'Những câu chuyện thú vị về hành trình phát triển và con người tại HDG Food.',
-                'status'           => 'inactive',
+                'description'      => 'Các thông tin nội bộ, định hướng phát triển và hành trình nâng cấp dịch vụ HDG Food.',
+                'status'           => 'active',
                 'meta_title'       => 'Câu chuyện HDG Food',
-                'meta_description' => 'Hành trình hình thành và phát triển của thương hiệu HDG Food từ những ngày đầu tiên.',
+                'meta_description' => 'Theo dõi hành trình phát triển và các cột mốc quan trọng của HDG Food.',
             ],
         ];
 
         $createdTopics = [];
         foreach ($topics as $topicData) {
-            $createdTopics[] = PostTopic::firstOrCreate(
+            $createdTopics[] = PostTopic::updateOrCreate(
                 ['slug' => $topicData['slug']],
                 $topicData
             );
@@ -68,262 +64,218 @@ class PostTopicPostSeeder extends Seeder
 
         $this->command->info('✅ Đã seed ' . count($createdTopics) . ' chủ đề bài viết.');
 
-        /* ════════════════════════════════════════
-         | 2. BÀI VIẾT (Posts)
-         ════════════════════════════════════════ */
-
-        // Lấy admin user (hoặc user đầu tiên)
         $admin = User::where('role', 'admin')->first() ?? User::first();
         $adminId = $admin?->id;
 
-        // Map topic theo slug
         $topicMap = PostTopic::whereIn('slug', array_column($topics, 'slug'))
             ->pluck('id', 'slug')
             ->toArray();
 
         $posts = [
-            /* ── Chủ đề: Kiến thức dinh dưỡng ── */
             [
-                'title'            => '10 Thực phẩm giúp tăng cường hệ miễn dịch bạn nên biết',
-                'slug'             => '10-thuc-pham-giup-tang-cuong-he-mien-dich',
-                'content'          => '<h2>Hệ miễn dịch và tầm quan trọng</h2>
-<p>Hệ miễn dịch là "hàng rào" bảo vệ cơ thể khỏi vi khuẩn, virus và các tác nhân gây bệnh. Chế độ ăn uống đóng vai trò quan trọng trong việc duy trì sức đề kháng tự nhiên của cơ thể.</p>
-<h2>10 Thực phẩm hàng đầu</h2>
+                'title'            => 'Flash Sale cuối tuần: giảm đến 30% combo',
+                'slug'             => 'flash-sale-cuoi-tuan-giam-den-30-combo',
+                'content'          => '<h2>Ưu đãi cuối tuần đã quay lại</h2>
+<p>Từ 00:00 Thứ 7 đến 23:59 Chủ nhật, HDG Food áp dụng giảm giá đến <strong>30%</strong> cho các combo bán chạy.</p>
+<h2>Áp dụng</h2>
 <ul>
-  <li><strong>Tỏi</strong> – chứa allicin có tác dụng kháng khuẩn mạnh.</li>
-  <li><strong>Gừng</strong> – giảm viêm, tăng cường tuần hoàn máu.</li>
-  <li><strong>Cam, quýt</strong> – giàu Vitamin C, kích thích sản xuất bạch cầu.</li>
-  <li><strong>Bông cải xanh</strong> – chứa vitamin A, C, E và nhiều chất chống oxy hóa.</li>
-  <li><strong>Sữa chua</strong> – bổ sung lợi khuẩn probiotics tốt cho đường ruột.</li>
-  <li><strong>Hạnh nhân</strong> – nguồn Vitamin E dồi dào, bảo vệ tế bào.</li>
-  <li><strong>Nghệ</strong> – curcumin có tác dụng kháng viêm tuyệt vời.</li>
-  <li><strong>Trà xanh</strong> – chứa EGCG, chất chống oxy hóa mạnh.</li>
-  <li><strong>Ớt chuông đỏ</strong> – chứa gấp đôi Vitamin C so với cam.</li>
-  <li><strong>Cá hồi</strong> – OmHDG-3 giúp giảm viêm và tăng kháng thể.</li>
+  <li>Combo Văn Phòng 2 người</li>
+  <li>Set Gia Đình 4 người</li>
+  <li>Một số combo theo khung giờ vàng 11:00 - 13:00</li>
 </ul>
-<p>Hãy bổ sung những thực phẩm này vào bữa ăn hàng ngày để có một cơ thể khỏe mạnh!</p>',
-                'topic_slug'       => 'kien-thuc-dinh-duong',
-                'status'           => 'published',
-                'type'             => 'blog',
-                'is_featured'      => true,
-                'view_count'       => 1234,
-                'meta_title'       => '10 Thực phẩm tăng hệ miễn dịch hiệu quả | HDG Food',
-                'meta_description' => 'Khám phá 10 thực phẩm tự nhiên giúp tăng cường hệ miễn dịch, bảo vệ sức khỏe mỗi ngày. Được chuyên gia HDG Food tổng hợp và kiểm chứng.',
-                'published_at'     => now()->subDays(5),
-            ],
-            [
-                'title'            => 'Protein là gì? Tại sao cơ thể cần protein mỗi ngày?',
-                'slug'             => 'protein-la-gi-tai-sao-can-protein',
-                'content'          => '<h2>Protein là gì?</h2>
-<p>Protein (chất đạm) là một trong ba đại dưỡng chất thiết yếu của cơ thể, bên cạnh carbohydrate và chất béo. Protein được cấu tạo từ các axit amin liên kết với nhau.</p>
-<h2>Tại sao cơ thể cần protein?</h2>
-<ul>
-  <li>Xây dựng và phục hồi cơ bắp</li>
-  <li>Hỗ trợ hệ miễn dịch (kháng thể là protein)</li>
-  <li>Vận chuyển oxy trong máu (hemoglobin)</li>
-  <li>Cung cấp năng lượng khi cần thiết</li>
-</ul>
-<h2>Nguồn protein tốt</h2>
-<p>Thịt gà, cá, trứng, đậu hũ, hạt chia, sữa và các sản phẩm từ sữa đều là những nguồn protein chất lượng cao.</p>',
-                'topic_slug'       => 'kien-thuc-dinh-duong',
-                'status'           => 'published',
-                'type'             => 'blog',
-                'is_featured'      => false,
-                'view_count'       => 876,
-                'meta_title'       => 'Protein là gì? Tầm quan trọng của protein | HDG Food',
-                'meta_description' => 'Tìm hiểu về protein, vai trò thiết yếu của chất đạm với cơ thể và các nguồn thực phẩm giàu protein lành mạnh.',
-                'published_at'     => now()->subDays(10),
-            ],
-            [
-                'title'            => 'Chế độ ăn uống lành mạnh cho người bận rộn',
-                'slug'             => 'che-do-an-uong-lanh-manh-cho-nguoi-ban-ron',
-                'content'          => '<h2>Thách thức của cuộc sống hiện đại</h2>
-<p>Với nhịp sống bận rộn, nhiều người bỏ bữa hoặc ăn vội các thức ăn nhanh không tốt cho sức khỏe. Nhưng ăn lành mạnh không nhất thiết phải tốn nhiều thời gian.</p>
-<h2>Bí quyết ăn uống lành mạnh</h2>
-<ul>
-  <li>Meal prep cuối tuần – chuẩn bị đồ ăn cho cả tuần</li>
-  <li>Luôn có rau củ đã sơ chế sẵn trong tủ lạnh</li>
-  <li>Chọn đồ ăn nhẹ lành mạnh như hạt, trái cây</li>
-  <li>Uống đủ 2 lít nước mỗi ngày</li>
-</ul>',
-                'topic_slug'       => 'kien-thuc-dinh-duong',
-                'status'           => 'draft',
-                'type'             => 'blog',
-                'is_featured'      => false,
-                'view_count'       => 0,
-                'meta_title'       => null,
-                'meta_description' => null,
-                'published_at'     => null,
-            ],
-
-            /* ── Chủ đề: Tin khuyến mãi ── */
-            [
-                'title'            => 'Flash Sale Cuối Tuần – Giảm 30% Tất Cả Combo',
-                'slug'             => 'flash-sale-cuoi-tuan-giam-30-combo',
-                'content'          => '<h2>🔥 Flash Sale Chỉ Diễn Ra 48 Giờ!</h2>
-<p>HDG Food mang đến cơn lốc ưu đãi cuối tuần với mức giảm giá lên đến <strong>30%</strong> cho tất cả các combo ăn uống.</p>
-<h2>Các combo được giảm giá</h2>
-<ul>
-  <li>Combo Gia Đình (4 người) – Giảm từ 450k còn 315k</li>
-  <li>Combo Văn Phòng (2 người) – Giảm từ 220k còn 154k</li>
-  <li>Combo Học Sinh (1 người) – Giảm từ 95k còn 66k</li>
-</ul>
-<h2>Thời gian áp dụng</h2>
-<p>Từ 00:00 thứ 7 đến 23:59 chủ nhật hàng tuần. Số lượng có hạn, đặt hàng ngay!</p>',
+<p>Khách hàng có thể đặt trực tiếp trên website để nhận ưu đãi tự động tại bước thanh toán.</p>',
                 'topic_slug'       => 'tin-khuyen-mai',
                 'status'           => 'published',
                 'type'             => 'news',
                 'is_featured'      => true,
-                'view_count'       => 2567,
-                'meta_title'       => 'Flash Sale Cuối Tuần – Giảm 30% Combo | HDG Food',
-                'meta_description' => 'Không bỏ lỡ Flash Sale cuối tuần của HDG Food – Giảm ngay 30% tất cả combo. Chỉ 48 giờ, số lượng có hạn!',
+                'view_count'       => 2400,
+                'meta_title'       => 'Flash Sale cuối tuần giảm đến 30% combo | HDG Food',
+                'meta_description' => 'Cập nhật chương trình Flash Sale cuối tuần với nhiều combo giảm sâu trên website HDG Food.',
                 'published_at'     => now()->subDays(2),
             ],
             [
-                'title'            => 'Chương trình tích điểm HDG – Đổi điểm lấy quà tặng hấp dẫn',
-                'slug'             => 'chuong-trinh-tich-diem-doi-qua',
-                'content'          => '<h2>Tích điểm mỗi ngày – Nhận quà mỗi tuần</h2>
-<p>Với mỗi đơn hàng tại HDG Food, bạn sẽ tích lũy điểm thưởng. Điểm này có thể đổi lấy các phần quà hấp dẫn.</p>
-<h2>Cách tính điểm</h2>
+                'title'            => 'Voucher thành viên mới: WELCOME10 đã hoạt động',
+                'slug'             => 'voucher-thanh-vien-moi-welcome10-da-hoat-dong',
+                'content'          => '<h2>Ưu đãi dành cho khách hàng mới</h2>
+<p>Mã <strong>WELCOME10</strong> chính thức áp dụng cho tài khoản mới đăng ký trên website HDG Food.</p>
+<h2>Điều kiện</h2>
 <ul>
-  <li>Mỗi 10.000đ chi tiêu = 1 điểm thưởng</li>
-  <li>Double điểm vào thứ 4 hàng tuần</li>
-  <li>Triple điểm cho đơn hàng đầu tiên</li>
+  <li>Giảm 10% tối đa 30.000đ</li>
+  <li>Áp dụng cho đơn từ 50.000đ</li>
+  <li>Mỗi tài khoản sử dụng 1 lần</li>
 </ul>
-<h2>Đổi điểm lấy gì?</h2>
-<p>100 điểm đổi 1 phần ăn miễn phí, 50 điểm đổi 1 ly nước ngọt, 200 điểm đổi combo cao cấp.</p>',
+<p>Mã được kiểm tra tự động tại bước thanh toán.</p>',
                 'topic_slug'       => 'tin-khuyen-mai',
                 'status'           => 'published',
                 'type'             => 'news',
                 'is_featured'      => false,
-                'view_count'       => 1102,
+                'view_count'       => 1500,
                 'meta_title'       => null,
                 'meta_description' => null,
                 'published_at'     => now()->subDays(7),
             ],
-
-            /* ── Chủ đề: Giới thiệu món ăn ── */
             [
-                'title'            => 'Cơm Tấm Sườn Bì Chả – Hương Vị Nam Bộ Đậm Đà',
-                'slug'             => 'com-tam-suon-bi-cha-huong-vi-nam-bo',
-                'content'          => '<h2>Nguồn gốc của Cơm Tấm</h2>
-<p>Cơm tấm là món ăn đặc trưng của người miền Nam, xuất phát từ những hạt gạo tấm vỡ trước đây bị coi là phế phẩm nhưng lại có hương vị thơm ngon đặc biệt.</p>
-<h2>Bộ ba hoàn hảo: Sườn – Bì – Chả</h2>
+                'title'            => 'Thông báo bảo trì hệ thống vào 02:00 sáng Chủ nhật',
+                'slug'             => 'thong-bao-bao-tri-he-thong-02h-sang-chu-nhat',
+                'content'          => '<h2>Lịch bảo trì định kỳ</h2>
+<p>Website HDG Food sẽ bảo trì từ <strong>02:00 đến 03:30</strong> sáng Chủ nhật để nâng cấp hiệu năng và ổn định hệ thống thanh toán.</p>
+<h2>Ảnh hưởng</h2>
 <ul>
-  <li><strong>Sườn nướng</strong> – ướp đậm đà, nướng than hồng thơm lừng</li>
-  <li><strong>Bì heo</strong> – mềm mại, quyện cùng thính gạo rang giòn</li>
-  <li><strong>Chả trứng</strong> – béo ngậy, thơm mùi nước mắm</li>
-</ul>
-<h2>Tại HDG Food</h2>
-<p>Chúng tôi giữ nguyên công thức truyền thống, sườn được ướp qua đêm và nướng theo đặt hàng để đảm bảo độ tươi ngon nhất.</p>',
-                'topic_slug'       => 'gioi-thieu-mon-an',
-                'status'           => 'published',
-                'type'             => 'blog',
-                'is_featured'      => true,
-                'view_count'       => 3401,
-                'meta_title'       => 'Cơm Tấm Sườn Bì Chả Đặc Biệt | HDG Food',
-                'meta_description' => 'Khám phá hương vị cơm tấm sườn bì chả truyền thống Nam Bộ tại HDG Food – được chế biến theo công thức gia truyền đậm đà, thơm ngon.',
-                'published_at'     => now()->subDays(3),
-            ],
-            [
-                'title'            => 'Bún Bò Huế – Cay Nồng Đậm Đà Miền Trung',
-                'slug'             => 'bun-bo-hue-cay-nong-dam-da',
-                'content'          => '<h2>Bún Bò Huế – Niềm tự hào ẩm thực cố đô</h2>
-<p>Bún bò Huế nổi tiếng với nước dùng đậm đà từ xương bò hầm nhiều giờ cùng các gia vị đặc trưng như sả, hả liệu và mắm ruốc Huế.</p>
-<h2>Điều gì làm nên sự đặc biệt?</h2>
-<ul>
-  <li>Nước dùng hầm xương 6-8 tiếng</li>
-  <li>Mắm ruốc Huế chính hiệu</li>
-  <li>Chả cua, giò heo thái lát</li>
-  <li>Rau sống và bắp chuối bào kèm</li>
-</ul>
-<p>Thưởng thức tô bún bò Huế cay nồng vào buổi sáng sẽ khởi đầu ngày mới thật tuyệt vời!</p>',
-                'topic_slug'       => 'gioi-thieu-mon-an',
-                'status'           => 'published',
-                'type'             => 'blog',
-                'is_featured'      => false,
-                'view_count'       => 1876,
-                'meta_title'       => null,
-                'meta_description' => null,
-                'published_at'     => now()->subDays(8),
-            ],
-            [
-                'title'            => 'Phở Bò Hà Nội – Tinh Hoa Ẩm Thực Đất Kinh Kỳ',
-                'slug'             => 'pho-bo-ha-noi-tinh-hoa-am-thuc',
-                'content'          => '<h2>Phở – Linh hồn ẩm thực Việt</h2>
-<p>Phở bò Hà Nội không chỉ là một món ăn – đó là biểu tượng văn hóa, là ký ức của hàng triệu người con đất Việt.</p>
-<h2>Bí quyết nước dùng trong vắt</h2>
-<ul>
-  <li>Xương bò trụng sơ loại bỏ tạp chất</li>
-  <li>Hầm với hành và gừng nướng thơm</li>
-  <li>Hoa hồi, quế, thảo quả tạo hương đặc trưng</li>
-  <li>Hớt bọt liên tục để nước trong</li>
+  <li>Tạm thời không tạo đơn mới trong thời gian bảo trì</li>
+  <li>Đơn đã tạo trước đó vẫn được lưu an toàn</li>
+  <li>Sau bảo trì, hệ thống hoạt động bình thường</li>
 </ul>',
-                'topic_slug'       => 'gioi-thieu-mon-an',
+                'topic_slug'       => 'thong-bao-he-thong',
                 'status'           => 'published',
-                'type'             => 'blog',
+                'type'             => 'news',
                 'is_featured'      => false,
-                'view_count'       => 2103,
-                'meta_title'       => null,
-                'meta_description' => null,
-                'published_at'     => now()->subDays(15),
-            ],
-
-            /* ── Chủ đề: Công thức nấu ăn ── */
-            [
-                'title'            => 'Công thức Gà Nướng Mật Ong – Đơn Giản Mà Ngon Bất Ngờ',
-                'slug'             => 'cong-thuc-ga-nuong-mat-ong-don-gian',
-                'content'          => '<h2>Nguyên liệu cần chuẩn bị</h2>
-<ul>
-  <li>1 con gà ta (khoảng 1.2kg)</li>
-  <li>3 thìa mật ong nguyên chất</li>
-  <li>2 thìa nước tương</li>
-  <li>1 thìa dầu hào</li>
-  <li>Tỏi, gừng, sả băm nhuyễn</li>
-</ul>
-<h2>Các bước thực hiện</h2>
-<ol>
-  <li>Ướp gà với hỗn hợp gia vị ít nhất 2 tiếng (tốt nhất qua đêm)</li>
-  <li>Làm nóng lò ở 200°C</li>
-  <li>Nướng 25 phút, lật mặt và phết thêm mật ong</li>
-  <li>Nướng tiếp 15 phút cho đến khi vàng đều</li>
-</ol>
-<p><em>Mẹo: Để gà không khô, đặt một bát nước vào lò khi nướng.</em></p>',
-                'topic_slug'       => 'cong-thuc-nau-an',
-                'status'           => 'published',
-                'type'             => 'guide',
-                'is_featured'      => true,
-                'view_count'       => 4521,
-                'meta_title'       => 'Công Thức Gà Nướng Mật Ong Thơm Ngon | HDG Food',
-                'meta_description' => 'Học ngay cách làm gà nướng mật ong vàng óng, thơm lừng với công thức đơn giản dễ thực hiện từ HDG Food.',
+                'view_count'       => 920,
+                'meta_title'       => 'Thông báo bảo trì hệ thống HDG Food',
+                'meta_description' => 'Thông tin lịch bảo trì hệ thống website HDG Food và thời gian ảnh hưởng dự kiến.',
                 'published_at'     => now()->subDays(1),
             ],
             [
-                'title'            => 'Salad Trái Cây Nhiệt Đới – Thanh Mát Cho Mùa Hè',
-                'slug'             => 'salad-trai-cay-nhiet-doi-thanh-mat',
-                'content'          => '<h2>Nguyên liệu</h2>
+                'title'            => 'Ra mắt giao diện quản lý đơn hàng mới trên website',
+                'slug'             => 'ra-mat-giao-dien-quan-ly-don-hang-moi',
+                'content'          => '<h2>Cập nhật giao diện mới</h2>
+<p>HDG Food đã nâng cấp giao diện quản lý đơn hàng nhằm giúp khách hàng theo dõi trạng thái đơn trực quan hơn.</p>
+<h2>Điểm mới</h2>
 <ul>
-  <li>Xoài chín 1 quả</li>
-  <li>Thanh long đỏ 1 quả</li>
-  <li>Dưa hấu 300g</li>
-  <li>Dừa tươi nạo sợi</li>
-  <li>Sốt: nước cốt chanh + mật ong + mint</li>
-</ul>
-<h2>Cách làm</h2>
+  <li>Timeline trạng thái đơn rõ ràng theo từng bước</li>
+  <li>Hiển thị phương thức thanh toán ngay trên đầu trang</li>
+  <li>Tối ưu hiển thị trên thiết bị di động</li>
+</ul>',
+                'topic_slug'       => 'cap-nhat-tinh-nang',
+                'status'           => 'published',
+                'type'             => 'news',
+                'is_featured'      => false,
+                'view_count'       => 1180,
+                'meta_title'       => null,
+                'meta_description' => null,
+                'published_at'     => now()->subDays(4),
+            ],
+            [
+                'title'            => 'Hướng dẫn áp mã giảm giá khi thanh toán',
+                'slug'             => 'huong-dan-ap-ma-giam-gia-khi-thanh-toan',
+                'content'          => '<h2>Cách nhập mã giảm giá</h2>
 <ol>
-  <li>Cắt trái cây thành miếng vừa ăn</li>
-  <li>Làm sốt bằng cách trộn nước chanh, mật ong, lá mint</li>
-  <li>Trộn đều trái cây với sốt</li>
-  <li>Để lạnh 30 phút trước khi dùng</li>
-</ol>',
-                'topic_slug'       => 'cong-thuc-nau-an',
+  <li>Thêm sản phẩm vào giỏ và vào trang thanh toán</li>
+  <li>Nhập mã voucher tại ô "Mã giảm giá"</li>
+  <li>Nhấn "Áp dụng" để hệ thống tính lại tổng tiền</li>
+</ol>
+<h2>Lưu ý</h2>
+<p>Mỗi voucher có điều kiện tối thiểu đơn hàng, giới hạn số lần dùng hoặc giới hạn theo hạng thành viên.</p>',
+                'topic_slug'       => 'huong-dan-su-dung',
                 'status'           => 'published',
                 'type'             => 'guide',
                 'is_featured'      => false,
-                'view_count'       => 987,
+                'view_count'       => 860,
+                'meta_title'       => null,
+                'meta_description' => null,
+                'published_at'     => now()->subDays(3),
+            ],
+            [
+                'title'            => 'Cập nhật quy trình thanh toán tại bàn (dine-in)',
+                'slug'             => 'cap-nhat-quy-trinh-thanh-toan-tai-ban',
+                'content'          => '<h2>Điểm cải tiến</h2>
+<p>Hệ thống dine-in mới chỉ thanh toán theo <strong>giỏ hàng hiện tại</strong>, tránh cộng nhầm tổng bill của cả bàn.</p>
+<h2>Lợi ích</h2>
+<ul>
+  <li>Khách dễ tách bill khi gọi nhiều lượt</li>
+  <li>Nhân viên đối soát nhanh hơn</li>
+  <li>Giảm sai lệch số tiền thanh toán</li>
+</ul>',
+                'topic_slug'       => 'cap-nhat-tinh-nang',
+                'status'           => 'published',
+                'type'             => 'news',
+                'is_featured'      => false,
+                'view_count'       => 740,
+                'meta_title'       => 'Cập nhật quy trình thanh toán tại bàn | HDG Food',
+                'meta_description' => 'Thông báo cải tiến luồng thanh toán dine-in trên website HDG Food.',
+                'published_at'     => now()->subDays(5),
+            ],
+            [
+                'title'            => 'Thông báo nâng cấp tính năng theo dõi đơn hàng',
+                'slug'             => 'thong-bao-nang-cap-tinh-nang-theo-doi-don-hang',
+                'content'          => '<h2>Nâng cấp mới</h2>
+<p>Trang theo dõi đơn hàng đã được bổ sung trạng thái chi tiết và thông tin thanh toán rõ ràng hơn.</p>
+<h2>Khách hàng nhận được gì?</h2>
+<ul>
+  <li>Dễ theo dõi tiến trình xử lý đơn</li>
+  <li>Biết ngay đơn đã thanh toán hay chưa</li>
+  <li>Giảm thao tác liên hệ hỗ trợ thủ công</li>
+</ul>',
+                'topic_slug'       => 'thong-bao-he-thong',
+                'status'           => 'published',
+                'type'             => 'news',
+                'is_featured'      => false,
+                'view_count'       => 620,
                 'meta_title'       => null,
                 'meta_description' => null,
                 'published_at'     => now()->subDays(6),
+            ],
+            [
+                'title'            => 'Hướng dẫn đăng ký tài khoản mới trong 1 phút',
+                'slug'             => 'huong-dan-dang-ky-tai-khoan-moi-trong-1-phut',
+                'content'          => '<h2>Đăng ký nhanh trên HDG Food</h2>
+<p>Bạn chỉ cần email hoặc số điện thoại là có thể tạo tài khoản để theo dõi đơn hàng và nhận ưu đãi thành viên.</p>
+<h2>Các bước thực hiện</h2>
+<ol>
+  <li>Truy cập trang <strong>/register</strong></li>
+  <li>Nhập họ tên, email/số điện thoại, mật khẩu</li>
+  <li>Xác nhận và đăng nhập để bắt đầu đặt món</li>
+</ol>
+<p>Tài khoản mới có thể nhận mã chào mừng nếu đủ điều kiện chương trình.</p>',
+                'topic_slug'       => 'huong-dan-su-dung',
+                'status'           => 'published',
+                'type'             => 'guide',
+                'is_featured'      => false,
+                'view_count'       => 980,
+                'meta_title'       => 'Hướng dẫn đăng ký tài khoản mới | HDG Food',
+                'meta_description' => 'Tạo tài khoản HDG Food nhanh chóng để theo dõi đơn và nhận ưu đãi thành viên.',
+                'published_at'     => now()->subDays(8),
+            ],
+            [
+                'title'            => 'Mở đăng ký chương trình thành viên HDG Rewards',
+                'slug'             => 'mo-dang-ky-chuong-trinh-thanh-vien-hdg-rewards',
+                'content'          => '<h2>HDG Rewards đã mở đăng ký</h2>
+<p>Khách hàng có tài khoản có thể tham gia chương trình thành viên để tích điểm và đổi ưu đãi theo hạng.</p>
+<h2>Quyền lợi chính</h2>
+<ul>
+  <li>Tích điểm theo giá trị đơn hàng</li>
+  <li>Nhận voucher theo hạng thành viên</li>
+  <li>Ưu tiên thông báo các chiến dịch khuyến mãi mới</li>
+</ul>
+<p>Đăng nhập tài khoản để kích hoạt và theo dõi điểm ngay trên hồ sơ cá nhân.</p>',
+                'topic_slug'       => 'tin-khuyen-mai',
+                'status'           => 'published',
+                'type'             => 'news',
+                'is_featured'      => true,
+                'view_count'       => 1710,
+                'meta_title'       => 'Mở đăng ký HDG Rewards | HDG Food',
+                'meta_description' => 'Tham gia chương trình thành viên HDG Rewards để tích điểm và nhận ưu đãi hấp dẫn.',
+                'published_at'     => now()->subDays(9),
+            ],
+            [
+                'title'            => 'Thông báo cập nhật chính sách bảo mật tài khoản',
+                'slug'             => 'thong-bao-cap-nhat-chinh-sach-bao-mat-tai-khoan',
+                'content'          => '<h2>Cập nhật chính sách bảo mật</h2>
+<p>HDG Food điều chỉnh chính sách bảo mật nhằm tăng cường an toàn cho tài khoản người dùng khi đăng nhập và thanh toán.</p>
+<h2>Nội dung chính</h2>
+<ul>
+  <li>Bổ sung hướng dẫn đặt mật khẩu mạnh</li>
+  <li>Làm rõ phạm vi sử dụng dữ liệu đơn hàng</li>
+  <li>Cập nhật kênh hỗ trợ khi phát hiện truy cập bất thường</li>
+</ul>
+<p>Vui lòng đọc bản chính sách mới tại trang Chính sách để tiếp tục sử dụng dịch vụ.</p>',
+                'topic_slug'       => 'thong-bao-he-thong',
+                'status'           => 'published',
+                'type'             => 'news',
+                'is_featured'      => false,
+                'view_count'       => 530,
+                'meta_title'       => 'Cập nhật chính sách bảo mật tài khoản | HDG Food',
+                'meta_description' => 'Thông báo cập nhật chính sách bảo mật mới nhất trên website HDG Food.',
+                'published_at'     => now()->subDays(10),
             ],
         ];
 
@@ -335,7 +287,7 @@ class PostTopicPostSeeder extends Seeder
             $postData['topic_id'] = $topicMap[$topicSlug] ?? null;
             $postData['user_id']  = $adminId;
 
-            Post::firstOrCreate(
+            Post::updateOrCreate(
                 ['slug' => $postData['slug']],
                 $postData
             );

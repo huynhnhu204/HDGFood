@@ -1,6 +1,7 @@
 'use client'
 
 import dynamic from 'next/dynamic'
+import Link from 'next/link'
 import { LazyMotion, domAnimation, m } from 'framer-motion'
 import { UtensilsCrossed, Zap, ShieldCheck } from 'lucide-react'
 import { useEffect, useState } from 'react'
@@ -46,7 +47,6 @@ const FEATURES = [
 
 export default function HomePage() {
   const user = useAuthStore((s) => s.user)
-  const tableId = useCartStore((s) => s.tableId)
   const setTableId = useCartStore((s) => s.setTableId)
   const setTableSessionToken = useCartStore((s) => s.setTableSessionToken)
   const [serviceModalOpen, setServiceModalOpen] = useState(false)
@@ -79,7 +79,12 @@ export default function HomePage() {
     if (!shouldOpen) return
     setServiceModalOpen(true)
     window.sessionStorage.removeItem('HDG_open_table_modal_after_login')
-  }, [user, tableId])
+  }, [user])
+
+  const handleDeferTable = () => {
+    setTableModalOpen(false)
+    window.sessionStorage.setItem('HDG_pending_table_selection', '1')
+  }
 
   const handleConfirmTable = () => {
     if (!selectedTable) return
@@ -90,7 +95,10 @@ export default function HomePage() {
         setTableSessionToken(token || null)
         window.localStorage.setItem('HDG_order_mode', 'dine_in')
         window.localStorage.setItem('HDG_table_id', String(selectedTable))
+        const tableName = res.data?.data?.table?.name || tableOptions.find((t) => t.id === selectedTable)?.name
+        if (tableName) window.localStorage.setItem('HDG_table_name', tableName)
         if (token) window.localStorage.setItem('HDG_table_session_token', token)
+        window.sessionStorage.removeItem('HDG_pending_table_selection')
         setTableModalOpen(false)
         toast.success(`Đã chọn ${res.data?.data?.table?.name || `Bàn ${selectedTable}`}. Bạn có thể tiếp tục xem trang chủ.`)
       })
@@ -102,7 +110,9 @@ export default function HomePage() {
   const handleChooseOnline = () => {
     window.localStorage.setItem('HDG_order_mode', 'online')
     window.localStorage.removeItem('HDG_table_id')
+    window.localStorage.removeItem('HDG_table_name')
     window.localStorage.removeItem('HDG_table_session_token')
+    window.sessionStorage.removeItem('HDG_pending_table_selection')
     setTableId(null)
     setTableSessionToken(null)
     setServiceModalOpen(false)
@@ -182,13 +192,12 @@ export default function HomePage() {
              <div className="absolute top-0 right-0 w-64 h-64 bg-[#ed2a2a]/20 blur-[100px] rounded-full"></div>
              <div className="relative z-10">
                 <h2 className="text-4xl lg:text-6xl font-black tracking-tighter mb-6">Bạn đã sẵn sàng để <br/> <span className="text-[#ed2a2a]">Tận hưởng ẩm thực?</span></h2>
-                <button
-                  suppressHydrationWarning
-                  onClick={() => setServiceModalOpen(true)}
-                  className="px-10 py-4 bg-[#ed2a2a] text-white rounded-2xl text-sm font-black uppercase tracking-widest hover:scale-105 active:scale-95 transition-all shadow-2xl shadow-red-600/30"
+                <Link
+                  href="/products"
+                  className="inline-block px-10 py-4 bg-[#ed2a2a] text-white rounded-2xl text-sm font-black uppercase tracking-widest hover:scale-105 active:scale-95 transition-all shadow-2xl shadow-red-600/30"
                 >
                   Đặt món ngay
-                </button>
+                </Link>
              </div>
           </m.div>
       </section>
@@ -223,7 +232,7 @@ export default function HomePage() {
 
       {tableModalOpen && (
         <div className="fixed inset-0 z-[120] flex items-center justify-center px-4">
-          <div className="absolute inset-0 bg-black/50" onClick={() => setTableModalOpen(false)} />
+          <div className="absolute inset-0 bg-black/50" onClick={handleDeferTable} />
           <div className="relative w-full max-w-lg rounded-3xl bg-white p-6 shadow-2xl">
             <h3 className="text-xl font-bold text-slate-900">Bạn đang ngồi bàn số mấy?</h3>
             <p className="mt-1 text-sm text-slate-500">Chọn đúng bàn để đơn về đúng vị trí phục vụ.</p>
@@ -249,7 +258,7 @@ export default function HomePage() {
             <div className="mt-5 flex justify-end gap-2">
               <button
                 type="button"
-                onClick={() => setTableModalOpen(false)}
+                onClick={handleDeferTable}
                 className="px-4 py-2 rounded-xl border border-slate-200 text-sm font-semibold text-slate-600"
               >
                 Để sau

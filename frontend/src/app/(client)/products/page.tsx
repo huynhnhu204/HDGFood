@@ -3,7 +3,7 @@
 import { useState, useEffect, Suspense } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { Gift, LayoutGrid, List as ListIcon, Search, SlidersHorizontal, Star } from 'lucide-react'
+import { Gift, LayoutGrid, List as ListIcon, Search, SlidersHorizontal, Star, UtensilsCrossed } from 'lucide-react'
 import { motion } from 'framer-motion'
 import Breadcrumbs from '@/components/common/Breadcrumbs'
 import FoodListCard from '@/components/products/FoodListCard'
@@ -83,13 +83,12 @@ function ProductsContent() {
   const [selectedCombo, setSelectedCombo] = useState<Combo | null>(null)
   const [comboBuilderOpen, setComboBuilderOpen] = useState(false)
   const [tableModalOpen, setTableModalOpen] = useState(false)
-  const [orderMode, setOrderMode] = useState<'online' | 'dine_in' | null>(null)
-  const [tableOptions, setTableOptions] = useState<Array<{ id: number; name: string; area?: string; status: string }>>([])
+  const [tableOptions, setTableOptions] = useState<Array<{ id: number; name: string; area?: string }>>([])
   const [pickedTable, setPickedTable] = useState<number | null>(null)
+  const [tableLabel, setTableLabel] = useState<string | null>(null)
   const tableId = useCartStore((s) => s.tableId)
   const setTableId = useCartStore((s) => s.setTableId)
   const setTableSessionToken = useCartStore((s) => s.setTableSessionToken)
-
   // -- Filter States --
   const [searchQuery, setSearchQuery] = useState<string>(searchParams.get('search') || '')
   const [sortBy, setSortBy] = useState<string>(searchParams.get('sort') || 'latest')
@@ -125,33 +124,59 @@ function ProductsContent() {
   }, [])
 
   useEffect(() => {
-    const mode = window.localStorage.getItem('HDG_order_mode')
-    if (mode === 'online' || mode === 'dine_in') {
-      setOrderMode(mode)
-    } else {
-      setOrderMode(null)
+    if (!tableId) {
+      setTableLabel(null)
+      return
     }
-  }, [])
+    const savedName = window.localStorage.getItem('HDG_table_name')
+    const matched = tableOptions.find((t) => t.id === tableId)
+    setTableLabel(savedName || matched?.name || `Bàn ${String(tableId).padStart(2, '0')}`)
+  }, [tableId, tableOptions])
 
   useEffect(() => {
-    if (orderMode === 'online') return
-    if (tableId) return
+    if (tableId) {
+      window.sessionStorage.removeItem('HDG_pending_table_selection')
+      return
+    }
+    const pending = window.sessionStorage.getItem('HDG_pending_table_selection') === '1'
+    const orderMode = window.localStorage.getItem('HDG_order_mode')
+    if (!pending || orderMode !== 'dine_in') return
     setTableModalOpen(true)
-    api.get('/tables/public-list')
-      .then((res) => setTableOptions(res.data?.data || []))
+  }, [tableId])
+
+  useEffect(() => {
+    if (!tableModalOpen) return
+    api.get<{ data: Array<{ id: number; name: string; area?: string }> }>('/tables/available')
+      .then((res) => setTableOptions(res.data.data || []))
       .catch(() => setTableOptions([]))
-  }, [tableId, orderMode])
+  }, [tableModalOpen])
+
+  const handleDeferTable = () => {
+    setTableModalOpen(false)
+    window.sessionStorage.setItem('HDG_pending_table_selection', '1')
+  }
+
+  const handleOpenChangeTable = () => {
+    setPickedTable(tableId)
+    setTableModalOpen(true)
+  }
 
   const handleSelectTable = async () => {
     if (!pickedTable) return
     try {
       const res = await api.post(`/tables/${pickedTable}/claim-session`)
       const token = res.data?.data?.session_token || null
+      const tableName = res.data?.data?.table?.name || tableOptions.find((t) => t.id === pickedTable)?.name
       setTableId(pickedTable)
       setTableSessionToken(token)
       window.localStorage.setItem('HDG_order_mode', 'dine_in')
       window.localStorage.setItem('HDG_table_id', String(pickedTable))
+      if (tableName) {
+        window.localStorage.setItem('HDG_table_name', tableName)
+        setTableLabel(tableName)
+      }
       if (token) window.localStorage.setItem('HDG_table_session_token', token)
+      window.sessionStorage.removeItem('HDG_pending_table_selection')
       setTableModalOpen(false)
     } catch (err: any) {
       alert(err?.response?.data?.message || 'Bàn này đang bận, vui lòng chọn bàn khác.')
@@ -309,6 +334,37 @@ function ProductsContent() {
            <Breadcrumbs items={breadcrumbItems} />
         </div>
 
+        <section className="mb-10 rounded-[2.5rem] border border-white/70 bg-gradient-to-r from-[#fff1f0] via-white to-[#f8fafc] p-8 shadow-[0_24px_80px_rgba(15,23,42,0.08)] overflow-hidden relative">
+          <div className="pointer-events-none absolute -top-10 -right-10 h-56 w-56 rounded-full bg-[#ed2a2a]/10 blur-3xl" />
+          <div className="pointer-events-none absolute -bottom-10 left-4 h-44 w-44 rounded-full bg-[#fb7185]/10 blur-3xl" />
+          <div className="relative grid gap-8 lg:grid-cols-[1.65fr_1fr] lg:items-center">
+            <div className="space-y-4">
+              <p className="text-sm font-black uppercase tracking-[0.35em] text-[#dc2626]">Thực đơn HDG Food</p>
+              <h1 className="text-3xl sm:text-4xl lg:text-5xl font-black leading-tight text-slate-900">
+                Món ngon nóng hổi, chọn nhanh, order sướng miệng.
+              </h1>
+              <p className="max-w-2xl text-sm leading-7 text-slate-500 sm:text-base">
+                Duyệt qua danh sách món ăn tươi mới và combo tiết kiệm. Lọc nhanh theo hương vị, giá và loại món để tìm đúng món bạn thích.
+              </p>
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-1">
+              <div className="rounded-[2rem] border border-slate-100 bg-white p-5 shadow-sm">
+                <p className="text-xs uppercase tracking-[0.24em] text-slate-400">Đang hiển thị</p>
+                <p className="mt-3 text-4xl font-black text-[#ed2a2a]">{comboOnly ? displayedCombos.length : total}</p>
+                <p className="text-sm text-slate-500 mt-1">{comboOnly ? 'combo ưu đãi' : 'món ăn'} phù hợp</p>
+              </div>
+              <div className="rounded-[2rem] border border-slate-100 bg-white p-5 shadow-sm">
+                <p className="text-xs uppercase tracking-[0.24em] text-slate-400">Lựa chọn nhanh</p>
+                <p className="mt-3 text-4xl font-black text-slate-900">{selectedCategoryLabel || activeIngredient ? 'Đã lọc' : 'Tất cả món'}</p>
+                <p className="text-sm text-slate-500 mt-1">
+                  {selectedCategoryLabel ? selectedCategoryLabel : activeIngredient ? `Theo ${activeIngredient}` : 'Duyệt mọi món ngon'}
+                </p>
+              </div>
+            </div>
+          </div>
+        </section>
+
         <div className="flex flex-col lg:flex-row gap-8">
           <ProductSidebar
               categories={categories}
@@ -329,14 +385,20 @@ function ProductsContent() {
 
           {/* Main Content Area */}
           <main className="flex-1">
-             {tableId && (
-               <div className="mb-4 flex items-center justify-between rounded-2xl border border-slate-200 bg-white px-4 py-2.5 shadow-sm sticky top-20 z-20">
-                 <p className="text-sm font-semibold text-slate-700">
-                   Bạn đang ngồi: <span className="text-[#ed2a2a] font-bold">Bàn {String(tableId).padStart(2, '0')}</span>
-                 </p>
+             {tableId && tableLabel && (
+               <div className="mb-4 flex items-center justify-between gap-3 rounded-2xl border border-red-100 bg-gradient-to-r from-red-50 via-white to-white px-4 py-3 shadow-sm sticky top-20 z-20">
+                 <div className="flex items-center gap-3 min-w-0">
+                   <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#ed2a2a]/10 text-[#ed2a2a]">
+                     <UtensilsCrossed className="h-4 w-4" />
+                   </div>
+                   <p className="text-sm font-semibold text-slate-700 truncate">
+                     Bạn đang ngồi: <span className="text-[#ed2a2a] font-bold">{tableLabel}</span>
+                   </p>
+                 </div>
                  <button
-                   onClick={() => setTableModalOpen(true)}
-                   className="text-xs font-semibold text-slate-500 hover:text-[#ed2a2a]"
+                   type="button"
+                   onClick={handleOpenChangeTable}
+                   className="shrink-0 text-xs font-bold text-slate-500 hover:text-[#ed2a2a] transition-colors"
                  >
                    Đổi bàn
                  </button>
@@ -387,6 +449,31 @@ function ProductsContent() {
                    </button>
                 </div>
              </div>
+
+             {(selectedCategoryLabel || activeIngredient || priceRange[1] < 500000 || comboOnly) && (
+                <div className="mb-6 flex flex-wrap gap-3">
+                   {selectedCategoryLabel && (
+                      <span className="rounded-full border border-[#ed2a2a] bg-red-50 px-4 py-2 text-xs font-black uppercase tracking-[0.18em] text-[#b91c1c]">
+                         {selectedCategoryLabel}
+                      </span>
+                   )}
+                   {activeIngredient && (
+                      <span className="rounded-full border border-slate-200 bg-slate-100 px-4 py-2 text-xs font-black uppercase tracking-[0.18em] text-slate-700">
+                         {activeIngredient}
+                      </span>
+                   )}
+                   {priceRange[1] < 500000 && (
+                      <span className="rounded-full border border-amber-200 bg-amber-50 px-4 py-2 text-xs font-black uppercase tracking-[0.18em] text-amber-700">
+                         Giá dưới {priceRange[1].toLocaleString('vi-VN')}đ
+                      </span>
+                   )}
+                   {comboOnly && (
+                      <span className="rounded-full border border-[#f97316] bg-orange-50 px-4 py-2 text-xs font-black uppercase tracking-[0.18em] text-[#c2410c]">
+                         Chỉ xem combo
+                      </span>
+                   )}
+                </div>
+             )}
 
              {/* Sort + View Toolbar */}
              <div className="mb-6 flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
@@ -560,43 +647,37 @@ function ProductsContent() {
 
       {tableModalOpen && (
         <div className="fixed inset-0 z-[120] flex items-center justify-center px-4">
-          <div className="absolute inset-0 bg-black/45" onClick={() => tableId && setTableModalOpen(false)} />
-          <div className="relative w-full max-w-2xl rounded-3xl bg-white p-6 shadow-2xl">
+          <div className="absolute inset-0 bg-black/50" onClick={handleDeferTable} />
+          <div className="relative w-full max-w-lg rounded-3xl bg-white p-6 shadow-2xl">
             <h3 className="text-xl font-bold text-slate-900">Bạn đang ngồi bàn số mấy?</h3>
-            <p className="mt-1 text-sm text-slate-500">Chọn đúng bàn để đơn đổ đúng khu vực phục vụ.</p>
-            <div className="mt-4 grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2 max-h-[55vh] overflow-y-auto">
-              {tableOptions.map((t) => {
-                const disabled = t.status !== 'available'
-                return (
-                  <button
-                    key={t.id}
-                    type="button"
-                    disabled={disabled}
-                    onClick={() => setPickedTable(t.id)}
-                    className={`rounded-2xl border px-3 py-3 text-left transition-all ${
-                      disabled
-                        ? 'opacity-40 cursor-not-allowed bg-slate-100 border-slate-200'
-                        : pickedTable === t.id
-                          ? 'border-[#ed2a2a] bg-red-50 text-[#ed2a2a]'
-                          : 'border-slate-200 hover:border-slate-300'
-                    }`}
-                  >
-                    <p className="text-sm font-semibold">{t.name}</p>
-                    <p className="text-[10px] text-slate-400">{disabled ? 'Đang có khách' : (t.area || 'Khu chung')}</p>
-                  </button>
-                )
-              })}
-            </div>
-            <div className="mt-5 flex justify-end gap-2">
-              {tableId && (
+            <p className="mt-1 text-sm text-slate-500">Chọn đúng bàn để đơn về đúng vị trí phục vụ.</p>
+
+            <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-72 overflow-y-auto">
+              {tableOptions.map((t) => (
                 <button
+                  key={t.id}
                   type="button"
-                  onClick={() => setTableModalOpen(false)}
-                  className="px-4 py-2 rounded-xl border border-slate-200 text-sm font-semibold text-slate-600"
+                  onClick={() => setPickedTable(t.id)}
+                  className={`rounded-2xl border px-3 py-3 text-left transition-all ${
+                    pickedTable === t.id
+                      ? 'border-[#ed2a2a] bg-red-50 text-[#ed2a2a]'
+                      : 'border-slate-200 hover:border-slate-300'
+                  }`}
                 >
-                  Đóng
+                  <p className="text-sm font-semibold">{t.name}</p>
+                  <p className="text-[11px] text-slate-400">{t.area || 'Khu chung'}</p>
                 </button>
-              )}
+              ))}
+            </div>
+
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={handleDeferTable}
+                className="px-4 py-2 rounded-xl border border-slate-200 text-sm font-semibold text-slate-600"
+              >
+                Để sau
+              </button>
               <button
                 type="button"
                 onClick={handleSelectTable}
@@ -609,6 +690,7 @@ function ProductsContent() {
           </div>
         </div>
       )}
+
     </div>
   )
 }

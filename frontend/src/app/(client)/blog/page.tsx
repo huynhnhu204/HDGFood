@@ -6,7 +6,7 @@ import { resolveMediaUrl } from '@/lib/media-url'
 import BlogGrid from './BlogGrid'
 export const metadata: Metadata = {
   title: 'Blog & Tin tức | HDG Food',
-  description: 'Khám phá các bài viết về ẩm thực, công thức nấu ăn và tin tức mới nhất từ HDG Food.',
+  description: 'Cập nhật tin khuyến mãi, thông báo hệ thống và các thông tin mới nhất từ website HDG Food.',
 }
 
 async function getPosts() {
@@ -40,7 +40,7 @@ export default async function BlogPage() {
             <span className="text-slate-600">Blog</span>
           </nav>
           <h1 className="text-5xl font-black text-slate-900 tracking-tight mb-3">Blog & Tin tức</h1>
-          <p className="text-slate-500 text-lg">Khám phá ẩm thực, công thức và câu chuyện từ bếp HDG Food</p>
+          <p className="text-slate-500 text-lg">Cập nhật khuyến mãi, thông báo và các bản tin mới từ HDG Food</p>
         </div>
       </div>
 

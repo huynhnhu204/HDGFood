@@ -17,6 +17,36 @@ import type { Combo } from '@/types/combo'
 /* ── Helpers ───────────────────────────────────────────────────────────── */
 const fmt = (n: number) => n.toLocaleString('vi-VN') + 'đ'
 
+const toSlug = (value: string): string =>
+  value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9\s-]/g, '')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+
+const normalizeImageUrl = (raw: string): string => {
+  const value = raw.trim()
+  if (!value) return ''
+  if (value.startsWith('//')) return `https:${value}`
+  if (/^https?:\/\//i.test(value)) return value
+  if (value.startsWith('/')) return value
+  return `https://${value}`
+}
+
+const isValidImageUrl = (value: string): boolean => {
+  if (!value) return true
+  if (value.startsWith('/')) return true
+  try {
+    const url = new URL(value)
+    return url.protocol === 'http:' || url.protocol === 'https:'
+  } catch {
+    return false
+  }
+}
+
 function toLocalDateTime(date: Date): string {
   const y = date.getFullYear()
   const m = String(date.getMonth() + 1).padStart(2, '0')
@@ -48,6 +78,37 @@ interface GroupForm {
 }
 
 type PickerTarget = { type: 'core' } | { type: 'group'; index: number } | null
+
+type ApiComboProduct = {
+  product_id?: number
+  quantity?: number
+  product?: { id: number }
+}
+
+type ApiComboGroup = {
+  id?: number
+  name?: string
+  description?: string | null
+  min_required?: number
+  max_required?: number
+  products?: ApiComboProduct[]
+  comboProducts?: ApiComboProduct[]
+  combo_products?: ApiComboProduct[]
+}
+
+const extractGroupProducts = (group: ApiComboGroup): Array<{ product_id: number; quantity: number }> => {
+  const rawProducts = group.products ?? group.comboProducts ?? group.combo_products ?? []
+  return rawProducts
+    .map((p) => {
+      const productId = Number(p.product_id ?? p.product?.id ?? 0)
+      if (!productId) return null
+      return {
+        product_id: productId,
+        quantity: Math.max(1, Number(p.quantity || 1)),
+      }
+    })
+    .filter((item): item is { product_id: number; quantity: number } => item !== null)
+}
 
 export default function EditComboPage() {
   const router = useRouter()
@@ -89,8 +150,26 @@ export default function EditComboPage() {
           api.get<{ data: Product[] }>('/products?per_page=1000')
         ])
         
-        const comboData = comboRes.data
-        setCombo(comboData)
+        const comboData = comboRes.data as Combo & {
+          groups?: ApiComboGroup[]
+          activeGroups?: ApiComboGroup[]
+          active_groups?: ApiComboGroup[]
+        }
+        const apiGroups: ApiComboGroup[] =
+          comboData.groups ?? comboData.activeGroups ?? comboData.active_groups ?? []
+        const normalizedGroups = apiGroups.map((g) => ({
+          id: Number(g.id || 0),
+          name: g.name || '',
+          description: g.description || '',
+          min_required: Math.max(0, Number(g.min_required || 0)),
+          max_required: Math.max(0, Number(g.max_required || 0)),
+          products: extractGroupProducts(g),
+        }))
+
+        setCombo({
+          ...comboData,
+          groups: normalizedGroups as Combo['groups'],
+        })
         
         // Load products
         setProducts(productsRes.data.data)
@@ -111,10 +190,10 @@ export default function EditComboPage() {
         setImageUrl(comboData.image || '')
         
         // Set groups from combo data: tách nhóm món chính theo đúng bảng
-        if (comboData.groups && comboData.groups.length > 0) {
-          const coreCandidate = comboData.groups.find(
+        if (normalizedGroups.length > 0) {
+          const coreCandidate = normalizedGroups.find(
             (g) => g.name.trim().toLowerCase() === 'món trong combo'
-          ) || comboData.groups[0]
+          ) || normalizedGroups[0]
 
           setCoreGroupId(coreCandidate?.id)
           setCoreProducts(
@@ -124,7 +203,7 @@ export default function EditComboPage() {
             }))
           )
 
-          const optionGroups = comboData.groups.filter((g) => g.id !== coreCandidate?.id)
+          const optionGroups = normalizedGroups.filter((g) => g.id !== coreCandidate?.id)
           setGroups(optionGroups.map(g => ({
             id: g.id,
             name: g.name,
@@ -302,11 +381,18 @@ export default function EditComboPage() {
     setSaving(true)
     try {
       // Update combo basic info
+      const normalizedImage = normalizeImageUrl(imageUrl)
+      if (!isValidImageUrl(normalizedImage)) {
+        toast.error('Link ảnh chưa hợp lệ. Vui lòng dùng URL http/https.')
+        setSaving(false)
+        return
+      }
+
       await comboAdminService.update(comboId, {
         name: form.name,
-        slug: form.slug || undefined,
+        slug: form.slug ? toSlug(form.slug) : undefined,
         description: form.description || undefined,
-        image: imageUrl || undefined,
+        image: normalizedImage !== '' ? normalizedImage : null,
         discount_type: form.discount_type,
         discount_value: parseFloat(form.discount_value),
         is_active: form.is_active,
@@ -506,7 +592,12 @@ export default function EditComboPage() {
 
               <div>
                 <label className="block text-sm font-bold text-slate-700 mb-2">Slug (URL)</label>
-                <input value={form.slug} onChange={e => set('slug', e.target.value)} placeholder="auto-generated" className={inputCls()} />
+                <input
+                  value={form.slug}
+                  onChange={e => set('slug', toSlug(e.target.value))}
+                  placeholder="auto-generated"
+                  className={inputCls()}
+                />
               </div>
 
               <div>
@@ -515,7 +606,7 @@ export default function EditComboPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-bold text-slate-700 mb-2">Hình ảnh</label>
+                <label className="block text-sm font-bold text-slate-700 mb-2">Hình ảnh (URL ngoài)</label>
                 <div className="flex gap-3">
                   {imageUrl && (
                     <div className="relative w-24 h-24 rounded-xl overflow-hidden border border-slate-200">
@@ -526,12 +617,16 @@ export default function EditComboPage() {
                     </div>
                   )}
                   <div className="flex-1">
-                    <input 
+                    <input
                       value={imageUrl} 
-                      onChange={e => setImageUrl(e.target.value)} 
-                      placeholder="https://... (URL ảnh)" 
-                      className={inputCls()} 
+                      onChange={e => setImageUrl(e.target.value)}
+                      onBlur={e => setImageUrl(normalizeImageUrl(e.target.value))}
+                      placeholder="https://... (URL ảnh, Cloudinary, Imgur, ...)"
+                      className={inputCls()}
                     />
+                    <p className="mt-1 text-[11px] text-slate-400 font-medium">
+                      Co the dan link anh ben ngoai. Neu thieu https:// he thong se tu bo sung.
+                    </p>
                   </div>
                 </div>
               </div>

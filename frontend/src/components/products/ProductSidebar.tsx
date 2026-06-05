@@ -8,6 +8,7 @@ import { comboService } from '@/services/combo.service'
 import type { Category } from '@/types'
 import { Combo } from '@/types/combo'
 import ComboMiniCard from '@/components/combos/ComboMiniCard'
+import { formatPrice } from '@/lib/format'
 
 const INGREDIENTS = [
   { id: 'seafood', label: 'Hải sản', icon: '🦐', keyword: 'hải sản' },
@@ -71,11 +72,6 @@ export default function ProductSidebar({
   const handlePriceChange = (val: number) => {
     setMaxPrice(val)
     onPriceFilter(0, val)
-  }
-
-  // Format price helper
-  const formatPrice = (price: number) => {
-    return Math.round(price).toLocaleString('vi-VN')
   }
 
   // Calculate save percent

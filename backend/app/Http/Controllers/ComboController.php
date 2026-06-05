@@ -81,7 +81,7 @@ class ComboController extends Controller
     /**
      * Get single combo detail
      */
-    public function show($id)
+    public function show(int $id)
     {
         $combo = Combo::with(['groups' => function ($q) {
             $q->orderBy('sort_order');
@@ -341,7 +341,7 @@ class ComboController extends Controller
     /**
      * Get combo for edit (admin)
      */
-    public function showAdmin($id)
+    public function showAdmin(int $id)
     {
         $combo = Combo::with(['activeGroups.comboProducts.product'])
             ->find($id);
@@ -356,7 +356,7 @@ class ComboController extends Controller
     /**
      * Update combo
      */
-    public function update(Request $request, $id)
+    public function update(Request $request, int $id)
     {
         $combo = Combo::find($id);
         if (!$combo) {
@@ -393,7 +393,7 @@ class ComboController extends Controller
     /**
      * Delete combo
      */
-    public function destroy($id)
+    public function destroy(int $id)
     {
         $combo = Combo::find($id);
         if (!$combo) {
@@ -411,7 +411,7 @@ class ComboController extends Controller
     /**
      * Add group to combo
      */
-    public function addGroup(Request $request, $id)
+    public function addGroup(Request $request, int $id)
     {
         $combo = Combo::find($id);
         if (!$combo) {
@@ -444,7 +444,7 @@ class ComboController extends Controller
     /**
      * Update group
      */
-    public function updateGroup(Request $request, $id, $gid)
+    public function updateGroup(Request $request, int $id, int $gid)
     {
         $group = ComboGroup::where('combo_id', $id)->find($gid);
         if (!$group) {
@@ -471,7 +471,7 @@ class ComboController extends Controller
     /**
      * Delete group
      */
-    public function deleteGroup($id, $gid)
+    public function deleteGroup(int $id, int $gid)
     {
         $group = ComboGroup::where('combo_id', $id)->find($gid);
         if (!$group) {
@@ -489,7 +489,7 @@ class ComboController extends Controller
     /**
      * Add products to group
      */
-    public function addProducts(Request $request, $id, $gid)
+    public function addProducts(Request $request, int $id, int $gid)
     {
         $group = ComboGroup::where('combo_id', $id)->find($gid);
         if (!$group) {
@@ -538,7 +538,7 @@ class ComboController extends Controller
     /**
      * Remove product from group
      */
-    public function removeProduct($id, $gid, $pid)
+    public function removeProduct(int $id, int $gid, int $pid)
     {
         $cp = ComboProduct::where('combo_group_id', $gid)
             ->where('product_id', $pid)
@@ -567,7 +567,7 @@ class ComboController extends Controller
     /**
      * Toggle combo active status
      */
-    public function toggle($id)
+    public function toggle(int $id)
     {
         $combo = Combo::find($id);
         if (!$combo) {
@@ -599,10 +599,11 @@ class ComboController extends Controller
         }
 
         // Xóa theo thứ tự (MySQL không cho TRUNCATE combos khi combo_groups FK trỏ tới)
+        // Lưu ý: Combo dùng SoftDeletes, cần forceDelete để tránh trùng unique slug.
         DB::transaction(function () {
             ComboProduct::query()->delete();
             ComboGroup::query()->delete();
-            Combo::query()->delete();
+            Combo::withTrashed()->forceDelete();
         });
 
         // Combo 1: Set Trưa Văn Phòng
@@ -725,14 +726,123 @@ class ComboController extends Controller
         $combo3->final_price = $combo3->calculateFinalPrice();
         $combo3->save();
 
+        // Combo 4: Set Healthy
+        $combo4 = Combo::create([
+            'name'          => 'Set Healthy Ít Calo',
+            'slug'          => 'set-healthy-it-calo',
+            'description'   => 'Combo nhẹ nhàng cho người ăn lành mạnh: 1 món chính + 1 món phụ, giảm 12%.',
+            'image'         => $products->skip(3)->first()?->image,
+            'discount_type' => 'percent',
+            'discount_value'=> 12,
+            'is_active'     => true,
+        ]);
+
+        $g8 = $combo4->groups()->create([
+            'name'          => 'Chọn 1 món chính',
+            'min_required'  => 1,
+            'max_required'  => 1,
+            'sort_order'    => 0,
+        ]);
+        $g9 = $combo4->groups()->create([
+            'name'          => 'Chọn 1 món phụ',
+            'min_required'  => 1,
+            'max_required'  => 1,
+            'sort_order'    => 1,
+        ]);
+
+        foreach ($products->take(5) as $p) {
+            $g8->comboProducts()->create(['product_id' => $p->id]);
+        }
+        foreach ($products->slice(1, 4) as $p) {
+            $g9->comboProducts()->create(['product_id' => $p->id]);
+        }
+
+        $combo4->base_price = $combo4->calculateBasePriceFromProducts();
+        $combo4->final_price = $combo4->calculateFinalPrice();
+        $combo4->save();
+
+        // Combo 5: Set Ăn Vặt
+        $combo5 = Combo::create([
+            'name'          => 'Combo Ăn Vặt Buổi Chiều',
+            'slug'          => 'combo-an-vat-buoi-chieu',
+            'description'   => 'Chọn 3 món ăn vặt bất kỳ, giảm cố định 20.000đ.',
+            'image'         => $products->skip(4)->first()?->image,
+            'discount_type' => 'fixed',
+            'discount_value'=> 20000,
+            'is_active'     => true,
+        ]);
+
+        $g10 = $combo5->groups()->create([
+            'name'          => 'Chọn 3 món ăn vặt',
+            'min_required'  => 3,
+            'max_required'  => 3,
+            'sort_order'    => 0,
+        ]);
+
+        foreach ($products->take(7) as $p) {
+            $g10->comboProducts()->create(['product_id' => $p->id]);
+        }
+
+        $combo5->base_price = $combo5->calculateBasePriceFromProducts();
+        $combo5->final_price = $combo5->calculateFinalPrice();
+        $combo5->save();
+
+        // Combo 6: Set Cuối Tuần
+        $combo6 = Combo::create([
+            'name'          => 'Set Cuối Tuần',
+            'slug'          => 'set-cuoi-tuan',
+            'description'   => 'Combo nhóm bạn: 2 món chính + 2 món phụ + 2 nước, ưu đãi 18%.',
+            'image'         => $products->skip(5)->first()?->image,
+            'discount_type' => 'percent',
+            'discount_value'=> 18,
+            'is_active'     => true,
+            'end_date'      => now()->addMonths(1),
+        ]);
+
+        $g11 = $combo6->groups()->create([
+            'name'          => 'Chọn 2 món chính',
+            'min_required'  => 2,
+            'max_required'  => 2,
+            'sort_order'    => 0,
+        ]);
+        $g12 = $combo6->groups()->create([
+            'name'          => 'Chọn 2 món phụ',
+            'min_required'  => 2,
+            'max_required'  => 2,
+            'sort_order'    => 1,
+        ]);
+        $g13 = $combo6->groups()->create([
+            'name'          => 'Chọn 2 nước',
+            'min_required'  => 2,
+            'max_required'  => 2,
+            'sort_order'    => 2,
+        ]);
+
+        foreach ($products->take(6) as $p) {
+            $g11->comboProducts()->create(['product_id' => $p->id]);
+        }
+        foreach ($products->slice(1, 5) as $p) {
+            $g12->comboProducts()->create(['product_id' => $p->id]);
+        }
+        foreach ($products->slice(2, 5) as $p) {
+            $g13->comboProducts()->create(['product_id' => $p->id]);
+        }
+
+        $combo6->base_price = $combo6->calculateBasePriceFromProducts();
+        $combo6->final_price = $combo6->calculateFinalPrice();
+        $combo6->save();
+
         $combo1->load('activeGroups.comboProducts');
         $combo2->load('activeGroups.comboProducts');
         $combo3->load('activeGroups.comboProducts');
+        $combo4->load('activeGroups.comboProducts');
+        $combo5->load('activeGroups.comboProducts');
+        $combo6->load('activeGroups.comboProducts');
 
         return response()->json([
             'success' => true,
-            'message' => 'Seeded 3 sample combos',
-            'data' => [$combo1, $combo2, $combo3],
+            'message' => 'Seeded 6 sample combos',
+            'data' => [$combo1, $combo2, $combo3, $combo4, $combo5, $combo6],
         ]);
     }
 }

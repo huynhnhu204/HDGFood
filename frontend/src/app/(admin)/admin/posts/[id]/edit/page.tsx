@@ -21,6 +21,8 @@ const thumbUrl = (path?: string | null) =>
 /* ══════════════════════════════════════════════════════════════ */
 export default function EditPostPage() {
   const MAX_THUMB_SIZE = 10 * 1024 * 1024
+  // Herd/PHP local đang để 2M, giữ buffer để không chạm ngưỡng 413.
+  const SAFE_UPLOAD_SIZE = 1800 * 1024
   const { id }   = useParams<{ id: string }>()
   const router   = useRouter()
   const editorRef = useRef<HTMLDivElement>(null)
@@ -84,8 +86,55 @@ export default function EditPostPage() {
     setSlug(auto)
   }
 
+  const compressImageIfNeeded = async (file: File): Promise<File> => {
+    if (file.size <= SAFE_UPLOAD_SIZE) return file
+
+    const dataUrl = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = () => resolve(String(reader.result || ''))
+      reader.onerror = () => reject(new Error('Không đọc được ảnh để nén'))
+      reader.readAsDataURL(file)
+    })
+
+    const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+      const image = new window.Image()
+      image.onload = () => resolve(image)
+      image.onerror = () => reject(new Error('Không tải được ảnh để nén'))
+      image.src = dataUrl
+    })
+
+    const maxWidth = 1920
+    const scale = img.width > maxWidth ? maxWidth / img.width : 1
+    const width = Math.max(1, Math.round(img.width * scale))
+    const height = Math.max(1, Math.round(img.height * scale))
+
+    const canvas = document.createElement('canvas')
+    canvas.width = width
+    canvas.height = height
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return file
+    ctx.drawImage(img, 0, 0, width, height)
+
+    let quality = 0.9
+    let blob: Blob | null = null
+    while (quality >= 0.45) {
+      blob = await new Promise<Blob | null>((resolve) =>
+        canvas.toBlob(resolve, 'image/webp', quality)
+      )
+      if (blob && blob.size <= SAFE_UPLOAD_SIZE) break
+      quality -= 0.1
+    }
+
+    if (!blob) return file
+
+    return new File([blob], `${file.name.replace(/\.[^.]+$/, '')}-compressed.webp`, {
+      type: 'image/webp',
+      lastModified: Date.now(),
+    })
+  }
+
   /* ── thumbnail pick ── */
-  const handleThumbPick = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleThumbPick = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0]
     if (!f) return
     if (f.size > MAX_THUMB_SIZE) {
@@ -93,8 +142,24 @@ export default function EditPostPage() {
       if (fileRef.current) fileRef.current.value = ''
       return
     }
-    setThumbFile(f)
-    setThumbPreview(URL.createObjectURL(f))
+    try {
+      const uploadFile = await compressImageIfNeeded(f)
+      if (uploadFile.size > SAFE_UPLOAD_SIZE) {
+        toast.error('Ảnh quá lớn cho cấu hình server hiện tại. Vui lòng chọn ảnh nhẹ hơn hoặc tăng giới hạn PHP.')
+        if (fileRef.current) fileRef.current.value = ''
+        return
+      }
+
+      setThumbFile(uploadFile)
+      setThumbPreview(URL.createObjectURL(uploadFile))
+
+      if (uploadFile !== f) {
+        toast.success('Ảnh đã được nén tự động để phù hợp giới hạn upload.')
+      }
+    } catch {
+      toast.error('Không thể xử lý ảnh đã chọn. Vui lòng thử ảnh khác.')
+      if (fileRef.current) fileRef.current.value = ''
+    }
   }
 
   const removeCurrThumb = () => {
@@ -329,7 +394,7 @@ export default function EditPostPage() {
             {displayThumb ? (
               <div className="relative">
                 <div className="relative w-full h-48 rounded-xl overflow-hidden border border-slate-200">
-                  <Image src={displayThumb} alt="thumbnail" fill className="object-cover" />
+                  <Image src={displayThumb} alt="thumbnail" fill unoptimized className="object-cover" />
                 </div>
                 <button
                   onClick={removeCurrThumb}

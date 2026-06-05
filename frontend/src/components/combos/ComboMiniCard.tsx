@@ -6,6 +6,7 @@ import Image from 'next/image'
 import { motion } from 'framer-motion'
 import { Zap, ArrowRight, Gift, Sparkles } from 'lucide-react'
 import { Combo } from '@/types/combo'
+import { formatPrice } from '@/lib/format'
 
 interface ComboMiniCardProps {
   combo: Combo
@@ -20,8 +21,6 @@ export default function ComboMiniCard({ combo, onSelect }: ComboMiniCardProps) {
     : combo.base_price > 0 && combo.final_price < combo.base_price
       ? Math.round(((combo.base_price - combo.final_price) / combo.base_price) * 100)
       : 0
-
-  const formatPrice = (price: number) => Math.round(price).toLocaleString('vi-VN')
 
   return (
     <motion.article
@@ -54,7 +53,7 @@ export default function ComboMiniCard({ combo, onSelect }: ComboMiniCardProps) {
 
       {/* Ảnh Combo - Square Aspect */}
       <Link
-        href={`/products/combos/${combo.slug}`}
+        href={`/combos/${combo.id}`}
         className="block relative aspect-square overflow-hidden rounded-[1.5rem] bg-slate-50"
         onClick={(e) => e.stopPropagation()}
       >
@@ -114,7 +113,7 @@ export default function ComboMiniCard({ combo, onSelect }: ComboMiniCardProps) {
           </div>
 
           <Link
-            href={`/products/combos/${combo.slug}`}
+            href={`/combos/${combo.id}`}
             onClick={(e) => e.stopPropagation()}
             className="h-8 w-8 bg-slate-900 text-white rounded-full flex items-center justify-center hover:bg-[#ed2a2a] transition-colors shadow-lg"
             aria-label={`Xem chi tiết combo ${combo.name}`}

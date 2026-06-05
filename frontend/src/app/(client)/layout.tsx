@@ -98,7 +98,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
     <MotionConfig reducedMotion="user">
       <div className="flex flex-col min-h-screen bg-slate-50/30">
         <Header />
-        <main className="flex-1 overflow-x-hidden">
+        <main className={`flex-1 overflow-x-hidden ${isAuthPage ? 'pt-16 sm:pt-20' : ''}`}>
           {!isAuthPage && <BannerSlider position={resolveBannerPosition()} />}
           <div className={isAuthPage ? '' : 'mx-auto w-full max-w-[90rem] px-2 md:px-4'}>
             {children}
@@ -106,7 +106,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
         </main>
         
         <CartSidebar />
-        <Footer />
+        {!isAuthPage && <Footer />}
       </div>
     </MotionConfig>
   )

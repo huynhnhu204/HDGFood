@@ -97,7 +97,7 @@ export interface ComboUpdateInput {
   name?: string
   slug?: string
   description?: string
-  image?: string
+  image?: string | null
   discount_type?: 'percent' | 'fixed'
   discount_value?: number
   is_active?: boolean

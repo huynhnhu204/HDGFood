@@ -190,8 +190,8 @@ export default function OrderHistory() {
   return (
     <div className="bg-white rounded-[1.5rem] border border-slate-200 shadow-sm overflow-hidden">
       {/* Header */}
-      <div className="p-6 lg:p-8 border-b border-slate-100 flex items-center justify-between">
-        <div>
+      <div className="p-4 sm:p-6 lg:p-8 border-b border-slate-100 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
           <h2 className="text-xl font-black text-slate-800 flex items-center gap-3">
             <div className="w-10 h-10 bg-red-50 rounded-xl flex items-center justify-center">
               <Package className="w-5 h-5 text-[#ed2a2a]" />
@@ -202,10 +202,10 @@ export default function OrderHistory() {
             Tổng cộng {total} đơn hàng
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 w-full sm:w-auto">
           <button
             onClick={() => setActiveTab('active')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-all ${
+            className={`flex-1 sm:flex-none px-3 py-2 rounded-lg text-xs font-bold border transition-all ${
               activeTab === 'active'
                 ? 'bg-slate-900 text-white border-slate-900'
                 : 'bg-white text-slate-500 border-slate-200'
@@ -215,7 +215,7 @@ export default function OrderHistory() {
           </button>
           <button
             onClick={() => setActiveTab('cancelled')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-all ${
+            className={`flex-1 sm:flex-none px-3 py-2 rounded-lg text-xs font-bold border transition-all ${
               activeTab === 'cancelled'
                 ? 'bg-red-500 text-white border-red-500'
                 : 'bg-white text-slate-500 border-slate-200'
@@ -226,7 +226,7 @@ export default function OrderHistory() {
         </div>
       </div>
 
-      <div className="mx-6 lg:mx-8 mb-5 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600 leading-relaxed">
+      <div className="mx-4 sm:mx-6 lg:mx-8 mb-5 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600 leading-relaxed">
         <p className="font-semibold text-slate-800 mb-1.5">Lịch sử đơn và đăng ký lại bằng Gmail</p>
         <p>
           Trang này chỉ hiển thị đơn gắn với <strong>tài khoản bạn đang đăng nhập</strong>.
@@ -356,22 +356,44 @@ export default function OrderHistory() {
               const rejectMessage = order.cancel_reject_reason_label || extractCancelRejectMessage(order.note)
               return (
                 <div key={order.id} className="p-4 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="font-black text-slate-800">#{order.id}</span>
-                    <span className={`px-3 py-1 rounded-lg text-[11px] font-bold ${statusInfo.bg} ${statusInfo.text}`}>
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <span className="font-black text-slate-800">#{order.id}</span>
+                      <p className="text-[11px] text-slate-400 mt-0.5">
+                        {new Date(order.created_at).toLocaleDateString('vi-VN')}
+                      </p>
+                    </div>
+                    <span className={`px-3 py-1 rounded-lg text-[11px] font-bold whitespace-nowrap ${statusInfo.bg} ${statusInfo.text}`}>
                       {statusInfo.label}
                     </span>
                   </div>
                   <div className="flex items-center justify-between text-sm">
-                    <span className="text-slate-500 font-medium">
-                      {new Date(order.created_at).toLocaleDateString('vi-VN')} • {order.items?.length || 0} SP
+                    <span className="text-slate-500 font-semibold">
+                      {order.items?.length || 0} sản phẩm
                     </span>
                     <span className="font-black text-[#ed2a2a]">{Number(order.total_price).toLocaleString('vi-VN')}đ</span>
+                  </div>
+                  {order.status === 'confirmed' && canCancel && order.cancel_policy?.countdown_seconds != null && (
+                    <p className="text-[11px] text-amber-600 font-semibold inline-flex items-center gap-1">
+                      <Clock3 className="w-3.5 h-3.5" />
+                      Còn {formatDuration(countdown)} để hủy nhanh
+                    </p>
+                  )}
+                  <div className="flex items-center justify-between gap-2">
+                    <PaymentStatusChip
+                      paymentMethod={order.payment_method}
+                      paymentStatus={order.payment_status}
+                      paymentClaimedAt={order.payment_claimed_at}
+                      compact
+                    />
+                    <div className="shrink-0">
+                      {renderPaymentActions(order)}
+                    </div>
                   </div>
                   {activeTab === 'active' && (canDirectCancel || canRequestManualNow) && (
                     <button
                       onClick={() => setModalOrder(order)}
-                      className="w-full px-3 py-2 rounded-lg text-[11px] font-bold border border-red-300 text-red-600 hover:bg-red-50"
+                      className="w-full px-3 py-2.5 rounded-lg text-[12px] font-bold border border-red-300 text-red-600 hover:bg-red-50"
                     >
                       {canDirectCancel ? (order.status === 'confirmed' ? `Hủy đơn - ${formatDuration(countdown)}` : 'Hủy đơn') : 'Yêu cầu hủy đơn'}
                     </button>
@@ -380,7 +402,7 @@ export default function OrderHistory() {
                     <button
                       disabled
                       title="Đã quá thời gian hủy đơn theo quy định của nhà hàng"
-                      className="w-full px-3 py-2 rounded-lg text-[11px] font-bold border border-slate-200 text-slate-400 bg-slate-100 cursor-not-allowed"
+                      className="w-full px-3 py-2.5 rounded-lg text-[12px] font-bold border border-slate-200 text-slate-400 bg-slate-100 cursor-not-allowed"
                     >
                       Hủy đơn hàng
                     </button>

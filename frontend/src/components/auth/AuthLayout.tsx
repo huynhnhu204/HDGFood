@@ -26,18 +26,18 @@ export default function AuthLayout({ children }: AuthLayoutProps) {
   if (!mounted) return <div className="min-h-screen bg-white" />
 
   return (
-    <div className="min-h-screen bg-slate-50 flex font-sans overflow-hidden">
+    <div className="min-h-[calc(100dvh-4rem)] sm:min-h-[calc(100dvh-5rem)] bg-slate-50 flex flex-col lg:flex-row font-sans">
       
       {/* Left Side: Dynamic Form Area */}
-      <div className="flex-1 flex flex-col items-center justify-center p-6 lg:p-12 bg-white relative z-10 overflow-y-auto">
+      <div className="flex-1 flex flex-col items-center justify-start p-4 sm:p-6 lg:p-10 bg-white relative z-10">
         <div className="absolute top-0 left-0 w-32 h-32 bg-red-50/50 rounded-br-full -z-10"></div>
         
-        <div className="w-full max-w-[420px]">
+        <div className="w-full max-w-[420px] py-4 sm:py-6">
           {children}
         </div>
         
         {/* Persistent Footer */}
-        <div className="mt-12 text-center">
+        <div className="mt-auto pt-6 pb-2 text-center">
             <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest leading-none">
               © {new Date().getFullYear()} HDG Food — Cuisine Experience
             </p>
@@ -45,7 +45,7 @@ export default function AuthLayout({ children }: AuthLayoutProps) {
       </div>
 
       {/* Right Side: Shared Visual Banner (Carousel) */}
-      <div className="hidden lg:flex flex-[1.2] bg-[#ed2a2a] relative overflow-hidden items-center justify-center">
+      <div className="hidden lg:flex flex-[1.2] min-h-[calc(100dvh-4rem)] sm:min-h-[calc(100dvh-5rem)] bg-[#ed2a2a] relative overflow-hidden items-center justify-center sticky top-16 sm:top-20 self-start">
          <AnimatePresence mode='wait'>
             <motion.img 
               key={currentSlide}

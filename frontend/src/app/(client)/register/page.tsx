@@ -7,7 +7,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import * as z from 'zod'
 import { 
   Eye, EyeOff, Loader2, Lock, Mail, User, Phone, 
-  ArrowLeft, CheckCircle2, AlertCircle 
+  ArrowLeft, ArrowRight, CheckCircle2, AlertCircle, UserPlus
 } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { toast } from 'sonner'
@@ -64,23 +64,23 @@ export default function RegisterPage() {
       <motion.div 
         initial={{ opacity: 0, x: 20 }}
         animate={{ opacity: 1, x: 0 }}
-        className="space-y-8 py-4"
+        className="space-y-5"
       >
         {/* Header */}
-        <div className="space-y-4">
-           <Link href="/login" className="inline-flex items-center gap-2 group p-2 hover:bg-slate-50 rounded-xl transition-colors">
+        <div className="space-y-3">
+           <Link href="/login" className="inline-flex items-center gap-2 group -ml-2 p-2 hover:bg-slate-50 rounded-xl transition-colors">
               <ArrowLeft className="w-4 h-4 text-slate-400 group-hover:text-[#ed2a2a] transition-colors" />
               <span className="text-[10px] uppercase font-black tracking-widest text-slate-400 group-hover:text-slate-900 transition-colors">Quay lại đăng nhập</span>
            </Link>
-           <div className="pt-2">
-              <h1 className="text-4xl font-black tracking-tighter text-slate-800 leading-none mb-2">
+           <div>
+              <h1 className="text-3xl sm:text-4xl font-black tracking-tighter text-slate-800 leading-tight mb-1.5">
                 Bắt đầu <br /> <span className="text-[#ed2a2a]">Hành trình</span> ngon miệng.
               </h1>
               <p className="text-sm font-medium text-slate-400">Đăng ký để nhận ưu đãi và tích điểm HDG.</p>
            </div>
         </div>
 
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-3">
           {/* Họ tên */}
           <div className="space-y-1.5">
              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Họ và tên</label>
@@ -90,7 +90,7 @@ export default function RegisterPage() {
                   {...register('name')}
                   placeholder="Nguyễn Văn A"
                   style={{ fontSize: '16px' }}
-                  className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:bg-white focus:border-[#ed2a2a] focus:ring-4 focus:ring-red-50 transition-all font-medium text-slate-700"
+                  className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:bg-white focus:border-[#ed2a2a] focus:ring-4 focus:ring-red-50 transition-all font-medium text-slate-700"
                 />
              </div>
              {errors.name && <span className="text-[10px] font-bold text-[#ed2a2a] ml-2 mt-1 flex items-center gap-1"><AlertCircle className="w-3 h-3"/> {errors.name.message}</span>}
@@ -107,7 +107,7 @@ export default function RegisterPage() {
                     type="email"
                     placeholder="name@example.com"
                     style={{ fontSize: '16px' }}
-                    className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:bg-white focus:border-[#ed2a2a] focus:ring-4 focus:ring-red-50 transition-all font-medium text-slate-700"
+                    className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:bg-white focus:border-[#ed2a2a] focus:ring-4 focus:ring-red-50 transition-all font-medium text-slate-700"
                   />
                </div>
                {errors.email && <span className="text-[10px] font-bold text-[#ed2a2a] ml-2 mt-1 flex items-center gap-1"><AlertCircle className="w-3 h-3"/> {errors.email.message}</span>}
@@ -122,10 +122,10 @@ export default function RegisterPage() {
                     {...register('phone')}
                     placeholder="09xx xxx xxx"
                     style={{ fontSize: '16px' }}
-                    className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:bg-white focus:border-[#ed2a2a] focus:ring-4 focus:ring-red-50 transition-all font-medium text-slate-700"
+                    className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:bg-white focus:border-[#ed2a2a] focus:ring-4 focus:ring-red-50 transition-all font-medium text-slate-700"
                   />
                </div>
-               {errors.phone && <span className="text-[10|px] font-bold text-[#ed2a2a] ml-2 mt-1 flex items-center gap-1"><AlertCircle className="w-3 h-3"/> {errors.phone.message}</span>}
+               {errors.phone && <span className="text-[10px] font-bold text-[#ed2a2a] ml-2 mt-1 flex items-center gap-1"><AlertCircle className="w-3 h-3"/> {errors.phone.message}</span>}
             </div>
           </div>
 
@@ -139,7 +139,7 @@ export default function RegisterPage() {
                   type={showPassword ? 'text' : 'password'}
                   placeholder="••••••••"
                   style={{ fontSize: '16px' }}
-                  className="w-full pl-12 pr-12 py-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:bg-white focus:border-[#ed2a2a] focus:ring-4 focus:ring-red-50 transition-all font-medium text-slate-700"
+                  className="w-full pl-12 pr-12 py-3 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:bg-white focus:border-[#ed2a2a] focus:ring-4 focus:ring-red-50 transition-all font-medium text-slate-700"
                 />
                 <button 
                   type="button" 
@@ -162,7 +162,7 @@ export default function RegisterPage() {
                   type={showPassword ? 'text' : 'password'}
                   placeholder="••••••••"
                   style={{ fontSize: '16px' }}
-                  className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:bg-white focus:border-[#ed2a2a] focus:ring-4 focus:ring-red-50 transition-all font-medium text-slate-700"
+                  className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:bg-white focus:border-[#ed2a2a] focus:ring-4 focus:ring-red-50 transition-all font-medium text-slate-700"
                 />
              </div>
              {errors.password_confirmation && <span className="text-[10px] font-bold text-[#ed2a2a] ml-2 mt-1 flex items-center gap-1"><AlertCircle className="w-3 h-3"/> {errors.password_confirmation.message}</span>}
@@ -171,13 +171,22 @@ export default function RegisterPage() {
           <button 
             type="submit"
             disabled={loading}
-            className="w-full py-4.5 bg-[#ed2a2a] text-white rounded-full text-sm font-black uppercase tracking-widest shadow-xl shadow-red-500/20 hover:bg-red-700 hover:scale-[1.01] active:scale-95 transition-all flex items-center justify-center gap-3 mt-4"
+            className="group relative w-full overflow-hidden py-3.5 bg-gradient-to-r from-[#ff4d4d] via-[#ed2a2a] to-[#c81e1e] text-white rounded-full text-sm font-black uppercase tracking-widest shadow-lg shadow-red-500/25 hover:shadow-red-500/40 hover:scale-[1.01] active:scale-[0.98] transition-all duration-300 flex items-center justify-center gap-2 mt-4 disabled:opacity-70 disabled:cursor-not-allowed disabled:hover:scale-100"
           >
-            {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <span>THAM GIA NGAY!</span>}
+            <span className="pointer-events-none absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/35 to-transparent skew-x-12 group-hover:translate-x-full transition-transform duration-700 ease-out" />
+            {loading ? (
+              <Loader2 className="w-5 h-5 animate-spin" />
+            ) : (
+              <>
+                <UserPlus className="w-4 h-4 transition-transform group-hover:-rotate-12" />
+                <span>Tham gia ngay!</span>
+                <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
+              </>
+            )}
           </button>
         </form>
 
-        <div className="text-center pt-4">
+        <div className="text-center pt-2">
            <p className="text-sm font-medium text-slate-400">
               Đã có tài khoản?{' '}
               <Link href="/login" className="text-[#ed2a2a] font-black hover:underline decoration-2">
@@ -186,7 +195,7 @@ export default function RegisterPage() {
            </p>
         </div>
 
-        <div className="relative py-2">
+        <div className="relative py-1">
           <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-slate-100" /></div>
           <div className="relative flex justify-center text-[10px] uppercase font-black text-slate-300 tracking-[0.3em] bg-white px-6">Hoặc đăng ký với</div>
         </div>

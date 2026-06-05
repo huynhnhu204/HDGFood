@@ -256,7 +256,7 @@ export default function PostsPage() {
                         <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
                           {thumb ? (
                             <div className="relative w-16 h-11 rounded-xl overflow-hidden border border-slate-200 bg-slate-100 shrink-0">
-                              <Image src={thumb} alt={post.title} fill className="object-cover" />
+                              <Image src={thumb} alt={post.title} fill unoptimized className="object-cover" />
                             </div>
                           ) : (
                             <div className="w-16 h-11 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center">
@@ -355,7 +355,7 @@ export default function PostsPage() {
                     {/* Thumbnail */}
                     {thumb ? (
                       <div className="relative w-20 h-16 rounded-xl overflow-hidden border border-slate-200 bg-slate-100 shrink-0">
-                        <Image src={thumb} alt={post.title} fill className="object-cover" />
+                                  <Image src={thumb} alt={post.title} fill unoptimized className="object-cover" />
                       </div>
                     ) : (
                       <div className="w-20 h-16 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center shrink-0">

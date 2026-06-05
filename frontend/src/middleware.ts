@@ -18,11 +18,20 @@ export function middleware(request: NextRequest) {
        if (adminToken && role === 'admin') {
           return NextResponse.redirect(new URL('/admin/dashboard', request.url))
        }
+       // Đã đăng nhập tài khoản thường thì không cho vào login admin.
+       if (userToken && role && role !== 'admin') {
+          return NextResponse.redirect(new URL('/403', request.url))
+       }
        return NextResponse.next()
     }
 
-    // Nếu cố vào các trang quản trị sâu hơn mà không phải Admin -> đá về trang login admin
+    // Nếu cố vào các trang quản trị sâu hơn mà không phải Admin
+    // - Đã đăng nhập user thường: trả về trang 403 (không đủ quyền)
+    // - Chưa đăng nhập: chuyển về login admin
     if (!adminToken || role !== 'admin') {
+       if (userToken || role === 'user') {
+          return NextResponse.redirect(new URL('/403', request.url))
+       }
        return NextResponse.redirect(new URL('/admin/login', request.url))
     }
   }

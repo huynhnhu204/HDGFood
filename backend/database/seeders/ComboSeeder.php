@@ -6,7 +6,7 @@ use App\Http\Controllers\ComboController;
 use Illuminate\Database\Seeder;
 
 /**
- * Tạo 3 combo mẫu (dùng logic giống API admin/combos/seed).
+ * Tạo 6 combo mẫu (dùng logic giống API admin/combos/seed).
  * Chạy: php artisan db:seed --class=ComboSeeder
  */
 class ComboSeeder extends Seeder
