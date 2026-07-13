@@ -12,6 +12,8 @@ import {
 import { useCartStore } from '@/store/useCartStore'
 import { useAuthStore } from '@/store/authStore'
 import AddressForm from '@/components/checkout/AddressForm'
+import CheckoutDeliveryPanel from '@/components/checkout/CheckoutDeliveryPanel'
+import DeliveryMapPicker, { type DeliveryLocation } from '@/components/checkout/DeliveryMapPicker'
 import api from '@/services/api'
 import { toast } from 'sonner'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -25,7 +27,8 @@ import {
   canUseVnpay,
   vnpayMinAmountMessage,
 } from '@/lib/payment-flow'
-import { buildCheckoutBill } from '@/lib/checkout-bill'
+import { buildCheckoutBill, meetsMinDeliveryOrder, minDeliveryOrderMessage, MIN_DELIVERY_ORDER_AMOUNT } from '@/lib/checkout-bill'
+import { deliveryService } from '@/services/delivery.service'
 import { TIER_LABELS, type UserTier } from '@/types'
 import { paymentService } from '@/services/payment.service'
 import PaymentMethodPicker from '@/components/payment/PaymentMethodPicker'
@@ -41,6 +44,7 @@ export default function CheckoutPage() {
   const [loading, setLoading] = useState(false)
   const [showMobileSummary, setShowMobileSummary] = useState(false)
   const [deliveryType, setDeliveryType] = useState<'self' | 'other'>('self') // self = giao cho tôi, other = giao cho người khác
+  const [selfLocationMode, setSelfLocationMode] = useState<'saved' | 'other'>('saved')
   const [availableVouchers, setAvailableVouchers] = useState<Voucher[]>([])
   const [showVoucherSuggestions, setShowVoucherSuggestions] = useState(false)
   const [validatingVoucher, setValidatingVoucher] = useState(false)
@@ -51,13 +55,17 @@ export default function CheckoutPage() {
   const [phone, setPhone] = useState('')
   const [address, setAddress] = useState('')
   const [addressDetails, setAddressDetails] = useState<any>(null)
+  const [deliveryLocation, setDeliveryLocation] = useState<DeliveryLocation | null>(null)
   const [note, setNote] = useState('')
   const [shippingMethod, setShippingMethod] = useState('standard') // standard | express
   const [paymentMethod, setPaymentMethod] = useState<CheckoutPaymentMethod>(DEFAULT_CHECKOUT_PAYMENT)
   const [voucherCode, setVoucherCode] = useState('')
   const [usePoints, setUsePoints] = useState(false)
   const [requestingPayment, setRequestingPayment] = useState(false)
-  const isDineIn = Boolean(tableId)
+  /** Giao hàng vs tại bàn — mặc định giao hàng khi vào checkout */
+  const [orderMode, setOrderMode] = useState<'delivery' | 'dine_in'>('delivery')
+  const [minDeliveryOrderAmount, setMinDeliveryOrderAmount] = useState(MIN_DELIVERY_ORDER_AMOUNT)
+  const isDineIn = orderMode === 'dine_in' && Boolean(tableId)
   const [currentTableOrder, setCurrentTableOrder] = useState<null | {
     id: number
     status: string
@@ -69,18 +77,87 @@ export default function CheckoutPage() {
 
   useEffect(() => {
     setMounted(true)
+    const params = new URLSearchParams(window.location.search)
+    if (params.get('dine_in') === '1' && tableId) {
+      setOrderMode('dine_in')
+    } else {
+      setOrderMode('delivery')
+    }
     // Auto-fill nếu user đã đăng nhập và chọn "Giao cho tôi"
     if (user && deliveryType === 'self') {
        setName(user.name || '')
        setPhone(user.phone || '')
-       // Nếu user có địa chỉ đã lưu, có thể parse và set vào AddressForm
        if (user.address) {
          setAddress(user.address)
+         setSelfLocationMode('saved')
+       } else {
+         setSelfLocationMode('other')
        }
     }
     // Fetch available vouchers
     fetchAvailableVouchers()
-  }, [user, deliveryType])
+    deliveryService.getConfig()
+      .then((config) => {
+        if (config.min_order_amount > 0) {
+          setMinDeliveryOrderAmount(config.min_order_amount)
+        }
+      })
+      .catch(() => {})
+  }, [user, deliveryType, tableId])
+
+  const switchToDelivery = () => {
+    setOrderMode('delivery')
+    setDeliveryLocation(null)
+  }
+
+  const switchToDineIn = () => {
+    if (!tableId) return
+    setOrderMode('dine_in')
+    setDeliveryLocation(null)
+  }
+
+  const handleDeliveryTypeSelf = () => {
+    setDeliveryType('self')
+    setOrderMode('delivery')
+    setDeliveryLocation(null)
+    if (user?.address) {
+      setAddress(user.address)
+      setSelfLocationMode('saved')
+    } else {
+      setSelfLocationMode('other')
+    }
+  }
+
+  const handleDeliveryTypeOther = () => {
+    setDeliveryType('other')
+    setOrderMode('delivery')
+    setName('')
+    setPhone('')
+    setAddress('')
+    setAddressDetails(null)
+    setDeliveryLocation(null)
+    setSelfLocationMode('other')
+  }
+
+  const handleSelfLocationSaved = () => {
+    setSelfLocationMode('saved')
+    if (user?.address) {
+      setAddress(user.address)
+      setAddressDetails({
+        provinceCode: user.province_code,
+        wardCode: user.ward_code,
+        fullAddress: user.address,
+      })
+    }
+    setDeliveryLocation(null)
+  }
+
+  const handleSelfLocationOther = () => {
+    setSelfLocationMode('other')
+    setAddress('')
+    setAddressDetails(null)
+    setDeliveryLocation(null)
+  }
 
   // Re-validate voucher when cart items change
   useEffect(() => {
@@ -183,6 +260,9 @@ export default function CheckoutPage() {
     tablePlusCartDisplayTotal,
   } = bill
 
+  const meetsMinDelivery = isDineIn || meetsMinDeliveryOrder(subtotal, minDeliveryOrderAmount)
+  const deliveryShortfall = Math.max(0, minDeliveryOrderAmount - subtotal)
+
   useEffect(() => {
     if (paymentMethod === 'vnpay' && !canUseVnpay(total)) {
       setPaymentMethod('cod')
@@ -261,16 +341,55 @@ export default function CheckoutPage() {
         return
       }
       // Nếu user chưa có địa chỉ, yêu cầu nhập
-      if (!user.address && !address.trim()) {
-        toast.error('Lỗi địa chỉ', { description: 'Vui lòng nhập địa chỉ giao hàng.' })
+      if (!deliveryLocation?.confirmed || !deliveryLocation?.withinRadius) {
+        toast.error('Chưa xác nhận vị trí', {
+          description: deliveryLocation?.withinRadius === false
+            ? (deliveryLocation?.message || 'Vui lòng chọn vị trí trong vùng giao hàng.')
+            : 'Vui lòng ghim vị trí và bấm "Xác nhận & lưu vị trí giao hàng".',
+        })
+        return
+      }
+      if (!addressDetails?.provinceCode || !addressDetails?.districtCode || !addressDetails?.wardCode) {
+        toast.error('Chưa đủ địa chỉ', {
+          description: 'Vui lòng kiểm tra Tỉnh/Quận/Phường sau khi ghim vị trí (chọn thủ công nếu chưa tự điền).',
+        })
+        return
+      }
+      if (selfLocationMode === 'other' && !address.trim() && !deliveryLocation.resolvedAddress) {
+        toast.error('Lỗi địa chỉ', { description: 'Vui lòng xác nhận địa chỉ giao hàng trên bản đồ.' })
         return
       }
     } else {
       // Nếu giao cho người khác hoặc chưa đăng nhập, validate form
-      if (!name.trim() || !phone.trim() || !address.trim()) {
-        toast.error('Lỗi thông tin', { description: 'Vui lòng điền đầy đủ Họ tên, SĐT và Địa chỉ nhận hàng.' })
+      if (!name.trim() || !phone.trim()) {
+        toast.error('Lỗi thông tin', { description: 'Vui lòng điền Họ tên và SĐT người nhận.' })
         return
       }
+      if (!deliveryLocation?.confirmed || !deliveryLocation?.withinRadius) {
+        toast.error('Chưa xác nhận vị trí', {
+          description: deliveryLocation?.withinRadius === false
+            ? (deliveryLocation?.message || 'Vui lòng chọn vị trí trong vùng giao hàng.')
+            : 'Vui lòng ghim vị trí và bấm "Xác nhận & lưu vị trí giao hàng".',
+        })
+        return
+      }
+      if (!addressDetails?.provinceCode || !addressDetails?.districtCode || !addressDetails?.wardCode) {
+        toast.error('Chưa đủ địa chỉ', {
+          description: 'Vui lòng kiểm tra Tỉnh/Quận/Phường sau khi ghim vị trí (chọn thủ công nếu chưa tự điền).',
+        })
+        return
+      }
+      if (!address.trim() && !deliveryLocation?.resolvedAddress) {
+        toast.error('Lỗi địa chỉ', { description: 'Vui lòng xác nhận địa chỉ giao hàng trên bản đồ.' })
+        return
+      }
+    }
+
+    if (!isDineIn && !meetsMinDeliveryOrder(subtotal, minDeliveryOrderAmount)) {
+      toast.error('Đơn giao hàng chưa đủ giá trị', {
+        description: minDeliveryOrderMessage(minDeliveryOrderAmount),
+      })
+      return
     }
 
     if (paymentMethod === 'vnpay' && !canUseVnpay(total)) {
@@ -316,7 +435,28 @@ export default function CheckoutPage() {
         customer_phone: deliveryType === 'self' && user ? user.phone : phone,
         table_number: isDineIn ? String(tableId) : undefined,
         table_session_token: isDineIn ? (tableSessionToken || null) : null,
-        shipping_address: isDineIn ? null : (deliveryType === 'self' && user ? (user.address || address) : address),
+        shipping_address: isDineIn ? null : (
+          deliveryType === 'self' && user
+            ? (deliveryLocation?.confirmed && deliveryLocation.resolvedAddress
+                ? deliveryLocation.resolvedAddress
+                : selfLocationMode === 'saved'
+                  ? (user.address || address)
+                  : address)
+            : (deliveryLocation?.resolvedAddress || address)
+        ),
+        delivery_latitude: isDineIn ? null : deliveryLocation?.latitude,
+        delivery_longitude: isDineIn ? null : deliveryLocation?.longitude,
+        delivery_province_code: isDineIn ? null : (
+          deliveryType === 'self' && selfLocationMode === 'saved'
+            ? user?.province_code
+            : addressDetails?.provinceCode
+        ),
+        delivery_district_code: isDineIn ? null : addressDetails?.districtCode,
+        delivery_ward_code: isDineIn ? null : (
+          deliveryType === 'self' && selfLocationMode === 'saved'
+            ? user?.ward_code
+            : addressDetails?.wardCode
+        ),
         shipping_method: isDineIn ? 'dine_in' : shippingMethod,
         payment_method: paymentMethod,
         shipping_fee: isDineIn ? 0 : shippingFee,
@@ -510,102 +650,48 @@ export default function CheckoutPage() {
              
              {/* 1. Thông tin giao hàng */}
              <section className="bg-white p-6 lg:p-8 rounded-[2rem] border border-slate-100 shadow-sm space-y-6">
-                <h2 className="text-sm font-black uppercase tracking-widest text-[#ed2a2a] flex items-center gap-2 border-b border-red-50 pb-4">
+                <h2 className="text-sm font-black uppercase tracking-widest text-[#ed2a2a] flex items-center gap-2">
                    <User className="w-4 h-4" /> Thông tin nhận hàng
                 </h2>
 
-                {/* Delivery Type Selection */}
-                {user && (
-                  <div className="grid grid-cols-2 gap-4 pb-4 border-b border-slate-100">
-                    <button
-                      onClick={() => setDeliveryType('self')}
-                      className={`p-4 rounded-2xl border-2 transition-all text-left ${
-                        deliveryType === 'self'
-                          ? 'border-[#ed2a2a] bg-red-50/30'
-                          : 'border-slate-200 hover:border-slate-300'
-                      }`}
-                    >
-                      <div className="flex items-center gap-3 mb-2">
-                        <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
-                          deliveryType === 'self' ? 'border-[#ed2a2a]' : 'border-slate-300'
-                        }`}>
-                          {deliveryType === 'self' && <div className="w-2.5 h-2.5 bg-[#ed2a2a] rounded-full" />}
-                        </div>
-                        <span className="font-black text-sm uppercase">Giao cho tôi</span>
-                      </div>
-                      <p className="text-[10px] text-slate-500 font-bold uppercase pl-8">
-                        Dùng thông tin tài khoản
-                      </p>
-                    </button>
+                <CheckoutDeliveryPanel
+                  tableId={tableId}
+                  orderMode={orderMode}
+                  deliveryType={deliveryType}
+                  selfLocationMode={selfLocationMode}
+                  user={user ? { name: user.name, phone: user.phone, address: user.address } : null}
+                  onOrderModeChange={(mode) => (mode === 'delivery' ? switchToDelivery() : switchToDineIn())}
+                  onDeliveryTypeChange={(type) => (type === 'self' ? handleDeliveryTypeSelf() : handleDeliveryTypeOther())}
+                  onSelfLocationModeChange={(mode) => (mode === 'saved' ? handleSelfLocationSaved() : handleSelfLocationOther())}
+                  onEditProfile={() => router.push('/profile?tab=info')}
+                />
 
-                    <button
-                      onClick={() => {
-                        setDeliveryType('other')
-                        // Reset form khi chuyển sang "Giao cho người khác"
-                        setName('')
-                        setPhone('')
-                        setAddress('')
-                        setAddressDetails(null)
-                      }}
-                      className={`p-4 rounded-2xl border-2 transition-all text-left ${
-                        deliveryType === 'other'
-                          ? 'border-[#ed2a2a] bg-red-50/30'
-                          : 'border-slate-200 hover:border-slate-300'
-                      }`}
-                    >
-                      <div className="flex items-center gap-3 mb-2">
-                        <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
-                          deliveryType === 'other' ? 'border-[#ed2a2a]' : 'border-slate-300'
-                        }`}>
-                          {deliveryType === 'other' && <div className="w-2.5 h-2.5 bg-[#ed2a2a] rounded-full" />}
-                        </div>
-                        <span className="font-black text-sm uppercase">Giao cho người khác</span>
-                      </div>
-                      <p className="text-[10px] text-slate-500 font-bold uppercase pl-8">
-                        Mua tặng / Đặt hộ
-                      </p>
-                    </button>
-                  </div>
+                {/* Ghim vị trí */}
+                {orderMode === 'delivery' && user && deliveryType === 'self' && (
+                  <DeliveryMapPicker
+                    key={`self-${selfLocationMode}`}
+                    savedAddressHint={selfLocationMode === 'saved' && user.address ? user.address : undefined}
+                    autoLocate={selfLocationMode === 'other'}
+                    onLocationChange={setDeliveryLocation}
+                    onAddressResolved={(addr) => setAddress(addr)}
+                  />
                 )}
 
-                {/* User Info Display (when deliveryType = 'self' and user exists) */}
-                {user && deliveryType === 'self' && (
-                  <div className="p-5 bg-emerald-50 border border-emerald-200 rounded-2xl space-y-3">
-                    <div className="flex items-center gap-2 mb-3">
-                      <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                      <span className="text-xs font-black uppercase text-emerald-700">
-                        Thông tin của bạn
-                      </span>
-                    </div>
-                    <div className="space-y-2">
-                      <div className="flex items-center gap-3">
-                        <User className="w-4 h-4 text-emerald-600" />
-                        <span className="text-sm font-bold text-slate-700">{user.name}</span>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <Phone className="w-4 h-4 text-emerald-600" />
-                        <span className="text-sm font-bold text-slate-700">{user.phone || 'Chưa cập nhật SĐT'}</span>
-                      </div>
-                      {user.address && (
-                        <div className="flex items-start gap-3">
-                          <MapPin className="w-4 h-4 text-emerald-600 mt-0.5" />
-                          <span className="text-sm font-bold text-slate-700">{user.address}</span>
-                        </div>
-                      )}
-                    </div>
-                    {!user.phone || !user.address ? (
-                      <button
-                        onClick={() => router.push('/profile?tab=info')}
-                        className="text-xs font-bold text-[#ed2a2a] hover:underline"
-                      >
-                        Cập nhật thông tin tài khoản →
-                      </button>
-                    ) : null}
-                  </div>
+                {/* Địa chỉ chi tiết — hiện sau khi xác nhận vị trí trên bản đồ */}
+                {orderMode === 'delivery' && user && deliveryType === 'self' && deliveryLocation?.confirmed && (
+                  <AddressForm
+                    hideMap
+                    fillFromLocation={deliveryLocation}
+                    onAddressChange={(addr) => {
+                      setAddress(addr.fullAddress)
+                      setAddressDetails(addr)
+                    }}
+                    onAddressResolved={setAddress}
+                  />
                 )}
-                
-                {/* Form Fields (always show for 'other', or when user not logged in) */}
-                {(deliveryType === 'other' || !user) && (
+
+                {/* Form đặt hộ hoặc khách chưa đăng nhập */}
+                {orderMode === 'delivery' && (deliveryType === 'other' || !user) && (
                   <>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                        <div className="space-y-2">
@@ -634,7 +720,12 @@ export default function CheckoutPage() {
                          onAddressChange={(addr) => {
                            setAddress(addr.fullAddress)
                            setAddressDetails(addr)
+                           if (addr.deliveryLocation) {
+                             setDeliveryLocation(addr.deliveryLocation)
+                           }
                          }}
+                         onDeliveryLocationChange={setDeliveryLocation}
+                         onAddressResolved={(addr) => setAddress(addr)}
                        />
                     </div>
                   </>
@@ -653,10 +744,27 @@ export default function CheckoutPage() {
              </section>
 
              {/* 2. Phương thức vận chuyển */}
+             {orderMode === 'delivery' ? (
              <section className="bg-white p-6 lg:p-8 rounded-[2rem] border border-slate-100 shadow-sm space-y-6">
                 <h2 className="text-sm font-black uppercase tracking-widest text-slate-900 flex items-center gap-2 border-b border-slate-50 pb-4">
                    <Truck className="w-4 h-4 text-emerald-500" /> Vận chuyển
                 </h2>
+                {!meetsMinDelivery && (
+                  <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-amber-900">
+                    <p className="text-sm font-bold">
+                      Đơn giao hàng tối thiểu {minDeliveryOrderAmount.toLocaleString('vi-VN')}₫ (chưa tính phí ship).
+                    </p>
+                    <p className="mt-1 text-xs text-amber-800/90">
+                      Giỏ hàng hiện tại {subtotal.toLocaleString('vi-VN')}₫ — cần thêm {deliveryShortfall.toLocaleString('vi-VN')}₫ món để đặt giao hàng.
+                    </p>
+                    <Link
+                      href="/"
+                      className="mt-3 inline-flex text-xs font-black uppercase tracking-wider text-[#ed2a2a] hover:underline"
+                    >
+                      Quay lại chọn thêm món →
+                    </Link>
+                  </div>
+                )}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                    <label className={`cursor-pointer p-4 rounded-2xl border-2 transition-all flex flex-col gap-2 ${shippingMethod === 'standard' ? 'border-emerald-500 bg-emerald-50/30' : 'border-slate-100 hover:border-slate-200'}`}>
                       <div className="flex items-center justify-between">
@@ -669,7 +777,7 @@ export default function CheckoutPage() {
                          </div>
                          <span className="font-bold text-emerald-600">15.000đ</span>
                       </div>
-                      <p className="text-[10px] uppercase font-bold text-slate-400 pl-8">Trong vòng 1-2 tiếng nội đô</p>
+                      <p className="text-[10px] uppercase font-bold text-slate-400 pl-8">Trong vòng 1-2 tiếng, bán kính ~25km từ quán</p>
                    </label>
 
                    <label className={`cursor-pointer p-4 rounded-2xl border-2 transition-all flex flex-col gap-2 ${shippingMethod === 'express' ? 'border-[#ed2a2a] bg-red-50/30' : 'border-slate-100 hover:border-slate-200'}`}>
@@ -687,6 +795,7 @@ export default function CheckoutPage() {
                    </label>
                 </div>
              </section>
+             ) : null}
 
              {/* 3. Phương thức thanh toán */}
              <section className="bg-white p-6 lg:p-8 rounded-[2rem] border border-slate-100 shadow-sm space-y-6">
@@ -949,16 +1058,22 @@ export default function CheckoutPage() {
                    )}
                 </div>
 
-                <div className="flex items-center justify-between border-t border-slate-100 pt-6 mb-8">
+                <div className="flex items-center justify-between border-t border-slate-100 pt-6 mb-4">
                    <span className="font-black uppercase tracking-widest text-slate-900">
                      {isDineIn && existingTableTotal > 0 ? 'Thanh toán lần này' : 'Tổng cộng'}
                    </span>
                    <span className="text-4xl font-black text-[#ed2a2a] italic">{total.toLocaleString()}đ</span>
                 </div>
 
-                <button 
+                {!meetsMinDelivery && (
+                  <p className="mb-4 text-xs font-bold text-amber-700 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2">
+                    Cần đơn từ {minDeliveryOrderAmount.toLocaleString('vi-VN')}₫ để giao hàng (thiếu {deliveryShortfall.toLocaleString('vi-VN')}₫).
+                  </p>
+                )}
+
+                <button
                   onClick={handleCheckout}
-                  disabled={loading}
+                  disabled={loading || !meetsMinDelivery}
                   className="w-full h-16 bg-[#ed2a2a] text-white rounded-full text-sm font-black uppercase tracking-[0.2em] shadow-[0_12px_30px_rgba(237,42,42,0.45)] hover:brightness-110 transition-all active:scale-95 flex items-center justify-center disabled:opacity-70 disabled:pointer-events-none"
                 >
                    {loading ? <Loader2 className="w-6 h-6 animate-spin" /> : checkoutCtaLabel(paymentMethod)}
@@ -985,8 +1100,8 @@ export default function CheckoutPage() {
                <p className="text-xl font-black text-[#ed2a2a] italic">{total.toLocaleString()}đ</p>
             </div>
             <button 
-               onClick={handleCheckout} disabled={loading}
-               className="px-8 h-14 bg-[#ed2a2a] text-white rounded-2xl text-[11px] font-black uppercase tracking-[0.2em] shadow-xl shadow-red-500/20 active:scale-95 transition-all flex items-center justify-center min-w-[140px]"
+               onClick={handleCheckout} disabled={loading || !meetsMinDelivery}
+               className="px-8 h-14 bg-[#ed2a2a] text-white rounded-2xl text-[11px] font-black uppercase tracking-[0.2em] shadow-xl shadow-red-500/20 active:scale-95 transition-all flex items-center justify-center min-w-[140px] disabled:opacity-70 disabled:pointer-events-none"
             >
                {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : checkoutCtaLabel(paymentMethod)}
             </button>

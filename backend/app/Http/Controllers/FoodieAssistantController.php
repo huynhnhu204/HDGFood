@@ -52,6 +52,7 @@ class FoodieAssistantController extends Controller
             'user_history' => $userHistory,
             'available_menu' => $availableMenu,
             'extracted_entities' => $extractedEntities,
+            'assistant_hints' => $this->buildAssistantHints($normalizedUserMessage, $extractedEntities, $availableMenu),
             'normalized_user_input' => $normalizedUserMessage,
             'shipping_estimate' => $shippingEstimate,
             'handoff_policy' => [
@@ -143,6 +144,8 @@ class FoodieAssistantController extends Controller
                         'id' => $product->id,
                         'name' => $product->name,
                         'price' => (float) ($product->final_price ?? $product->price),
+                        'category' => (string) ($product->category?->name ?? ''),
+                        'description' => Str::limit(strip_tags((string) ($product->description ?? '')), 120),
                         'tags' => array_values(array_unique($tags)),
                         'status' => 'in_stock',
                     ];
@@ -176,39 +179,29 @@ class FoodieAssistantController extends Controller
     private function buildSystemPrompt(): string
     {
         return <<<PROMPT
-Ban la chuyen vien tu van am thuc thong minh cua nha hang HDG Food.
+Bạn là Foodie Expert AI — chuyên viên tư vấn ẩm thực của HDG Food. Nhiệm vụ: đọc hiểu đúng ý khách (kể cả tiếng Việt không dấu, teen code) và gợi ý món từ menu thật bằng văn ngôn tự nhiên, ngon miệng, thân thiện.
 
-Yeu cau bat buoc:
-1) Tu van bang tieng Viet tu nhien, hap dan, chuyen nghiep.
-2) CHI goi y mon co trong available_menu va con hang.
-3) Neu khach hoi mon khong co trong menu, khong duoc bịa. Hay kheo leo goi y mon tuong tu dang co san.
-4) Neu goi y mon, phai kem block:
-[SUGGESTION_CARD]{"id":1,"name":"Bun cha","price":50000}[/SUGGESTION_CARD]
-5) Tuyet doi khong goi y mon het hang.
-6) Luon nhac thong tin phi ship thuc te theo shipping_estimate neu co (vi du inner_city: 15.000d).
-7) Luon ket thuc bang 1 cau hoi goi mo.
-8) Dung cach xung ho than thien nhu: "Da", "Vang a", "Da minh oi".
-9) Neu user co yeu cau dac biet (khong hanh, it cay, it duong...), phai nhac lai de xac nhan trong cau tra loi.
-10) Chong lap loi chao: neu recent_messages da co loi chao o cau truoc, cau tiep theo khong lap lai "xin chao/chao ban". Hay mo dau bang cau khac tu nhien nhu "Da em day a...", "Em nghe day minh oi...".
-11) Cong thuc tra loi: [Xac nhan y khach] + [Thong tin thuc te: menu/phi ship] + [Cau hoi goi mo de chot don].
-12) Phong cach toi gian: neu khach chi hoi gia, tra loi ngan gon, dung trong tam, kem SUGGESTION_CARD va khong dien giai dai dong.
-13) Trai nghiem cao cap: uu tien van phong tinh te voi cum tu "Trai nghiem", "Thuong thuc", "Vi nguyen ban" khi phu hop.
+BẮT BUỘC:
+1) Trả lời tiếng Việt có dấu, xưng "em" với khách "mình", giọng ẩm thực tự nhiên (đậm đà, thanh nhẹ, giòn tan, thơm béo, nóng hổi…).
+2) CHỈ gợi ý món có trong available_menu và còn hàng. Không bịa món, giá, topping.
+3) Đọc kỹ normalized_user_input, extracted_entities và assistant_hints trước khi trả lời — phản hồi đúng ý khách đang hỏi.
+4) Nếu khách hỏi tên món cụ thể: xác nhận món, nêu giá thật, mô tả ngắn hấp dẫn (1 câu), kèm SUGGESTION_CARD.
+5) Nếu khách hỏi "rẻ nhất", "đắt nhất", "dưới 50k": dùng cheapest_items / expensive_items trong assistant_hints — KHÔNG chọn món đắt khi khách hỏi rẻ nhất.
+6) Mỗi món gợi ý phải kèm block chính xác:
+[SUGGESTION_CARD]{"id":1,"name":"Bún chả","price":50000}[/SUGGESTION_CARD]
+(id, name, price phải khớp available_menu)
+7) Có shipping_estimate thì nhắc phí ship thực tế. Có special_requests thì nhắc lại để xác nhận.
+8) Không lặp lời chào nếu recent_messages vừa chào. Mở đầu tự nhiên: "Dạ em nghe đây mình ơi", "Vâng ạ"…
+9) Cấu trúc: [Hiểu ý khách] + [Gợi ý món + mô tả ngắn] + [SUGGESTION_CARD] + [Câu hỏi gợi mở chốt đơn].
 
-Uu tien theo thoi gian:
-- 05:00-10:30: uu tien diem tam, cafe, do uong nhe.
-- 10:30-13:30: uu tien mon no lau, com, bun, pho.
-- 14:00-17:30: uu tien tra sua, do an vat, mon nhe.
-- 17:00-20:30: uu tien bua toi, mon nong, combo.
-- 21:00-01:00: uu tien mon nhe, an vat, do uong.
+Theo khung giờ:
+- Sáng: điểm tâm, cafe, đồ uống nhẹ
+- Trưa: cơm, bún, phở, no bụng
+- Chiều: trà sữa, ăn vặt
+- Tối: món nóng, combo
+- Khuya: món nhẹ, dễ tiêu
 
-Phong cach:
-- Van phong am thuc tinh te: dam da, thanh nhe, gion tan, tron vi.
-- Hieu duoc tieng Viet khong dau va tu long.
-
-Output:
-- Mo dau bang 1 cau than thien.
-- Co the de 1-3 SUGGESTION_CARD.
-- Ket thuc bang 1 cau hoi.
+Output: 2–5 câu tự nhiên, 1–3 SUGGESTION_CARD, kết thúc bằng 1 câu hỏi.
 PROMPT;
     }
 
@@ -265,9 +258,6 @@ PROMPT;
         if ($this->isShortGreetingOnly($userInput)) {
             return true;
         }
-        if ($this->isPriceOnlyQuery($userInput)) {
-            return true;
-        }
 
         return false;
     }
@@ -278,8 +268,11 @@ PROMPT;
      */
     private function callProvider(string $userInput, array $recentMessages, string $systemPrompt, array $contextBlock): ?string
     {
-        $apiKey = (string) config('services.foodie_ai.api_key');
-        if ($apiKey === '') {
+        $geminiKey = trim((string) config('services.foodie_ai.fallback_api_key'));
+        $openaiKey = trim((string) config('services.foodie_ai.api_key'));
+        $provider = strtolower((string) config('services.foodie_ai.provider', 'gemini'));
+
+        if ($geminiKey === '' && $openaiKey === '') {
             $this->setAiError(
                 code: 'AI_CONFIG_MISSING',
                 message: 'Hệ thống tư vấn thông minh đang thiếu cấu hình. Vui lòng thử lại sau ít phút.'
@@ -287,13 +280,39 @@ PROMPT;
             return null;
         }
 
-        $provider = strtolower((string) config('services.foodie_ai.provider', 'gemini'));
-        if ($provider === 'gemini') {
-            return $this->callGeminiProvider($apiKey, $userInput, $recentMessages, $systemPrompt, $contextBlock);
+        // Ưu tiên Gemini khi có key — hiểu tiếng Việt tự nhiên tốt, tránh phụ thuộc keyword fallback.
+        if ($geminiKey !== '') {
+            $geminiReply = $this->callGeminiProvider(
+                $geminiKey,
+                $userInput,
+                $recentMessages,
+                $systemPrompt,
+                $contextBlock,
+                (string) config('services.foodie_ai.fallback_base_url'),
+                (string) config('services.foodie_ai.fallback_model')
+            );
+            if ($geminiReply !== null) {
+                $this->lastAiError = null;
+                return $geminiReply;
+            }
         }
 
-        // openai, chatgpt, hoặc bất kỳ provider tương thích OpenAI Chat Completions
-        return $this->callOpenAICompatibleProvider($apiKey, $userInput, $recentMessages, $systemPrompt, $contextBlock);
+        if ($provider === 'gemini' || $openaiKey === '') {
+            return null;
+        }
+
+        $primaryError = $this->lastAiError;
+        $this->lastAiError = null;
+        $reply = $this->callOpenAICompatibleProvider($openaiKey, $userInput, $recentMessages, $systemPrompt, $contextBlock);
+        if ($reply !== null) {
+            return $reply;
+        }
+
+        if ($this->lastAiError === null && $primaryError !== null) {
+            $this->lastAiError = $primaryError;
+        }
+
+        return null;
     }
 
     /**
@@ -443,10 +462,17 @@ PROMPT;
         return $response;
     }
 
-    private function callGeminiProvider(string $apiKey, string $userInput, array $recentMessages, string $systemPrompt, array $contextBlock): ?string
-    {
-        $baseUrl = rtrim((string) config('services.foodie_ai.base_url', 'https://generativelanguage.googleapis.com/v1beta'), '/');
-        $model = (string) config('services.foodie_ai.model', 'gemini-2.0-flash');
+    private function callGeminiProvider(
+        string $apiKey,
+        string $userInput,
+        array $recentMessages,
+        string $systemPrompt,
+        array $contextBlock,
+        ?string $baseUrlOverride = null,
+        ?string $modelOverride = null
+    ): ?string {
+        $baseUrl = rtrim($baseUrlOverride ?: (string) config('services.foodie_ai.base_url', 'https://generativelanguage.googleapis.com/v1beta'), '/');
+        $model = $modelOverride ?: (string) config('services.foodie_ai.model', 'gemini-2.0-flash');
 
         $contents = $this->buildGeminiContents($recentMessages, $userInput, $contextBlock);
 
@@ -505,21 +531,43 @@ PROMPT;
         }
 
         if ($this->isShortGreetingOnly($userInput)) {
-            $picked = $this->pickGroundedSuggestions($menu, $userInput)->take(3)->values();
+            $picked = $this->pickGroundedSuggestions($menu, $userInput, $extractedEntities)->take(3)->values();
             if ($picked->isEmpty()) {
                 return 'Dạ em nghe đây mình ơi. Mình muốn ăn no bụng, ăn vặt hay uống gì mát để em gợi ý đúng món đang có sẵn cho mình ạ?';
             }
-            $cards = $picked->map(function ($item) {
-                $card = json_encode([
-                    'id' => (int) $item['id'],
-                    'name' => (string) $item['name'],
-                    'price' => (float) $item['price'],
-                ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+            $cards = $this->buildSuggestionCards($picked);
+            $lines = $picked->map(fn ($item) => "• {$item['name']} — {$this->foodTasteHint($item)}, {$this->formatPriceVnd((float) $item['price'])}")->implode("\n");
 
-                return "[SUGGESTION_CARD]{$card}[/SUGGESTION_CARD]";
-            })->implode("\n");
+            return "Dạ em nghe đây mình ơi — vài món đang sẵn bếp, mình thử xem gu nào hợp nha:\n{$lines}\n{$cards}\nMình muốn ăn no, ăn vặt hay uống gì mát để em lọc thêm cho đúng ạ?";
+        }
 
-            return "Dạ em nghe đây mình ơi — em gợi ý vài món đang có sẵn trên menu để mình xem thử ạ:\n{$cards}\nMình muốn ăn no bụng, ăn vặt hay uống gì mát để em lọc thêm cho đúng ạ?";
+        $ranking = $extractedEntities['ranking_intent'] ?? null;
+        if (is_array($ranking) && !empty($ranking['type'])) {
+            $selected = $this->applyRankingIntent($menu, $ranking)->take(3)->values();
+            if ($selected->isNotEmpty()) {
+                $cards = $this->buildSuggestionCards($selected);
+                $lines = $selected->map(fn ($item) => "• {$item['name']} — {$this->formatPriceVnd((float) $item['price'])}")->implode("\n");
+                $intro = match ($ranking['type']) {
+                    'cheapest' => 'Dạ mình hỏi món rẻ nhất trên menu ạ — em lọc theo giá thấp nhất đang có sẵn:',
+                    'expensive' => 'Dạ mình muốn món cao cấp nhất ạ — đây là các món giá cao nhất đang có:',
+                    'under_price' => 'Dạ em lọc món dưới ' . $this->formatPriceVnd((float) ($ranking['max_price'] ?? 0)) . ' cho mình nè:',
+                    default => 'Dạ em gợi ý món phù hợp theo yêu cầu của mình:',
+                };
+
+                return "{$intro}\n{$lines}\n{$cards}\nMình muốn em chốt món nào luôn hay xem thêm món cùng mức giá ạ?";
+            }
+        }
+
+        $matched = $extractedEntities['product'] ?? null;
+        if (is_array($matched) && !empty($matched['name'])) {
+            $full = $menu->firstWhere('id', $matched['id']) ?? $matched;
+            $taste = $this->foodTasteHint($full);
+            $price = $this->formatPriceVnd((float) ($full['price'] ?? $matched['price']));
+            $cards = $this->buildSuggestionCards(collect([$full]));
+            $desc = trim((string) ($full['description'] ?? ''));
+            $descLine = $desc !== '' ? " {$desc}." : " Món {$taste}, đang có sẵn trên menu.";
+
+            return "Dạ mình hỏi {$matched['name']} ạ — giá {$price}.{$descLine}\n{$cards}\nMình muốn em thêm vào giỏ hay gợi ý món ăn kèm hợp gu không ạ?";
         }
 
         $preferred = $menu;
@@ -537,22 +585,16 @@ PROMPT;
             $preferred = $menu;
         }
 
-        $selected = $preferred->sortBy('price')->take(3)->values();
+        $selected = $this->pickGroundedSuggestions($preferred, $userInput, $extractedEntities)->take(3)->values();
         if ($selected->isEmpty()) {
             return 'Dạ mình ơi, hiện tại các món phù hợp đang tạm hết. Mình muốn em gợi ý nhóm món còn hàng gần gu của mình luôn không ạ?';
         }
 
         if ($this->isPriceOnlyQuery($userInput)) {
-            $cards = $selected->map(function ($item) {
-                $card = json_encode([
-                    'id' => (int) $item['id'],
-                    'name' => (string) $item['name'],
-                    'price' => (float) $item['price'],
-                ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
-                return "[SUGGESTION_CARD]{$card}[/SUGGESTION_CARD]";
-            })->implode("\n");
+            $lines = $selected->map(fn ($item) => "• {$item['name']}: {$this->formatPriceVnd((float) $item['price'])}")->implode("\n");
+            $cards = $this->buildSuggestionCards($selected);
 
-            return "Dạ em gửi mình mức giá nhanh để mình chọn món phù hợp trải nghiệm nhé.\n{$cards}\nMình muốn em lọc thêm nhóm giá mềm hay ưu tiên vị nguyên bản ạ?";
+            return "Dạ em gửi mình mức giá nhanh để mình chọn món hợp gu nhé:\n{$lines}\n{$cards}\nMình muốn em lọc thêm nhóm giá mềm hay món đậm vị hơn ạ?";
         }
 
         $shouldAvoidGreeting = $this->hasRecentGreeting($recentMessages);
@@ -577,15 +619,8 @@ PROMPT;
                 : 'Dạ giờ này em ưu tiên món nhẹ và dễ ăn để mình dùng khuya vẫn thoải mái ạ.';
         }
 
-        $cards = $selected->map(function ($item) {
-            $card = json_encode([
-                'id' => (int) $item['id'],
-                'name' => (string) $item['name'],
-                'price' => (float) $item['price'],
-            ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
-
-            return "[SUGGESTION_CARD]{$card}[/SUGGESTION_CARD]";
-        })->implode("\n");
+        $cards = $this->buildSuggestionCards($selected);
+        $lines = $selected->map(fn ($item) => "• {$item['name']} — {$this->foodTasteHint($item)}, {$this->formatPriceVnd((float) $item['price'])}")->implode("\n");
 
         $userHint = Str::lower($userInput);
         $ending = 'Mình thích em chốt theo gu thanh nhẹ hay đậm vị hơn ạ?';
@@ -605,7 +640,12 @@ PROMPT;
             $intro .= " Em đã ghi nhận yêu cầu {$joined} của mình rồi ạ.";
         }
 
-        return "{$intro}\n{$cards}\n{$ending}";
+        $prefs = $extractedEntities['preferences'] ?? [];
+        if (!empty($prefs)) {
+            $intro .= ' Em lọc theo gu ' . implode(', ', $prefs) . ' cho mình nè.';
+        }
+
+        return "{$intro}\n{$lines}\n{$cards}\n{$ending}";
     }
 
     private function normalizeReply(string $reply): string
@@ -622,12 +662,206 @@ PROMPT;
         return $normalized;
     }
 
+    private function removeVietnameseAccents(string $text): string
+    {
+        $text = Str::lower(trim($text));
+        if ($text === '') {
+            return '';
+        }
+
+        $from = ['à','á','ạ','ả','ã','â','ầ','ấ','ậ','ẩ','ẫ','ă','ằ','ắ','ặ','ẳ','ẵ','è','é','ẹ','ẻ','ẽ','ê','ề','ế','ệ','ể','ễ','ì','í','ị','ỉ','ĩ','ò','ó','ọ','ỏ','õ','ô','ồ','ố','ộ','ổ','ỗ','ơ','ờ','ớ','ợ','ở','ỡ','ù','ú','ụ','ủ','ũ','ư','ừ','ứ','ự','ử','ữ','ỳ','ý','ỵ','ỷ','ỹ','đ'];
+        $to   = ['a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','e','e','e','e','e','e','e','e','e','e','e','i','i','i','i','i','o','o','o','o','o','o','o','o','o','o','o','o','o','o','o','o','o','u','u','u','u','u','u','u','u','u','u','u','y','y','y','y','y','d'];
+
+        return str_replace($from, $to, $text);
+    }
+
+    private function buildAssistantHints(string $normalizedInput, array $entities, array $menu): array
+    {
+        $picked = $this->pickGroundedSuggestions(collect($menu), $normalizedInput, $entities);
+
+        return [
+            'intent_summary' => $this->summarizeUserIntent($normalizedInput, $entities),
+            'matched_product' => $entities['product'] ?? null,
+            'ranking_intent' => $entities['ranking_intent'] ?? null,
+            'cheapest_items' => collect($menu)->sortBy('price')->take(5)->map(fn ($item) => [
+                'id' => (int) $item['id'],
+                'name' => (string) $item['name'],
+                'price' => (float) $item['price'],
+            ])->values()->all(),
+            'expensive_items' => collect($menu)->sortByDesc('price')->take(3)->map(fn ($item) => [
+                'id' => (int) $item['id'],
+                'name' => (string) $item['name'],
+                'price' => (float) $item['price'],
+            ])->values()->all(),
+            'top_suggestions' => $picked->map(fn ($item) => [
+                'id' => (int) $item['id'],
+                'name' => (string) $item['name'],
+                'price' => (float) $item['price'],
+                'category' => (string) ($item['category'] ?? ''),
+                'taste_hint' => $this->foodTasteHint($item),
+            ])->values()->all(),
+        ];
+    }
+
+    private function summarizeUserIntent(string $input, array $entities): string
+    {
+        $parts = [];
+
+        if (!empty($entities['product']['name'])) {
+            $price = number_format((float) ($entities['product']['price'] ?? 0), 0, ',', '.');
+            $parts[] = "Khách đang hỏi về món \"{$entities['product']['name']}\" (khoảng {$price}đ)";
+        }
+
+        if (!empty($entities['preferences'])) {
+            $parts[] = 'Gu / nhu cầu: ' . implode(', ', $entities['preferences']);
+        }
+
+        if (!empty($entities['special_requests'])) {
+            $parts[] = 'Yêu cầu đặc biệt: ' . implode(', ', $entities['special_requests']);
+        }
+
+        if (!empty($entities['quantity'])) {
+            $parts[] = 'Số lượng dự kiến: ' . (int) $entities['quantity'];
+        }
+
+        if ($this->isPriceOnlyQuery($input)) {
+            $parts[] = 'Khách muốn biết giá món';
+        } elseif (!empty($entities['ranking_intent']['type'])) {
+            $rankLabels = [
+                'cheapest' => 'Khách muốn món rẻ nhất trên menu',
+                'expensive' => 'Khách muốn món đắt nhất / cao cấp',
+                'under_price' => 'Khách muốn món dưới mức giá nhất định',
+            ];
+            $parts[] = $rankLabels[$entities['ranking_intent']['type']] ?? 'Khách hỏi theo mức giá';
+        } elseif (Str::contains($input, ['an gi', 'mon gi', 'goi y', 'doi qua', 'ngon'])) {
+            $parts[] = 'Khách cần gợi ý món phù hợp';
+        }
+
+        return $parts !== []
+            ? implode('. ', $parts) . '.'
+            : 'Khách cần tư vấn món từ menu đang có sẵn.';
+    }
+
+    private function detectPreferences(string $normalized): array
+    {
+        $prefs = [];
+        $map = [
+            '/healthy|it calo|eat clean|an kieng|giam can|salad/u' => 'healthy / ít calo',
+            '/chay|mon chay|quan chay/u' => 'ăn chay',
+            '/cay|spicy|ot/u' => 'cay',
+            '/re|tiet kiem|gia mem|duoi\s*\d/u' => 'giá mềm',
+            '/ngot|tra sua|che|banh ngot/u' => 'ngọt / tráng miệng',
+            '/uong|nuoc|cafe|ca phe|tra\b/u' => 'đồ uống',
+            '/no|com trua|an trua|trua\b/u' => 'ăn no / bữa trưa',
+            '/an vat|snack|xiên|nem/u' => 'ăn vặt',
+            '/dem|khuya|dem khuya/u' => 'ăn khuya nhẹ',
+        ];
+
+        foreach ($map as $pattern => $label) {
+            if (preg_match($pattern, $normalized)) {
+                $prefs[] = $label;
+            }
+        }
+
+        return array_values(array_unique($prefs));
+    }
+
+    private function menuMatchStopwords(): array
+    {
+        return [
+            'menu', 'thuc', 'don', 'mon', 'an', 'gia', 're', 'nhat', 'dat', 'cao',
+            'cap', 'bao', 'nhieu', 'tien', 'cho', 'minh', 'em', 'shop', 'nha', 'hang',
+            'hdg', 'food', 'giup', 'tu', 'van', 'goi', 'y', 'xin', 'vui', 'long',
+            'muon', 'can', 'co', 'khong', 'nhu', 'the', 'nao', 'gi', 'j', 'ak',
+        ];
+    }
+
+    private function detectRankingIntent(string $normalized): ?array
+    {
+        $text = $this->removeVietnameseAccents(Str::lower(trim($normalized)));
+
+        if (preg_match('/duoi\s*(\d+)\s*k/u', $text, $m)) {
+            return ['type' => 'under_price', 'max_price' => (int) $m[1] * 1000];
+        }
+
+        if (preg_match('/(dat nhat|gia cao nhat|cao cap nhat|mon dat nhat)/u', $text)) {
+            return ['type' => 'expensive'];
+        }
+
+        if (preg_match('/(re nhat|gia re nhat|mon re nhat|re tren menu|re trong menu|menu re nhat|re nhat menu)/u', $text)) {
+            return ['type' => 'cheapest'];
+        }
+
+        if (preg_match('/\bre nhat\b/u', $text) || preg_match('/\bgia re\b/u', $text)) {
+            return ['type' => 'cheapest'];
+        }
+
+        return null;
+    }
+
+    private function applyRankingIntent(\Illuminate\Support\Collection $menu, array $ranking): \Illuminate\Support\Collection
+    {
+        return match ($ranking['type'] ?? '') {
+            'expensive' => $menu->sortByDesc('price')->values(),
+            'under_price' => $menu
+                ->filter(fn ($item) => (float) ($item['price'] ?? 0) <= (float) ($ranking['max_price'] ?? PHP_FLOAT_MAX))
+                ->sortBy('price')
+                ->values(),
+            default => $menu->sortBy('price')->values(),
+        };
+    }
+
+    private function foodTasteHint(array $item): string
+    {
+        $name = $this->removeVietnameseAccents((string) ($item['name'] ?? ''));
+        $category = $this->removeVietnameseAccents((string) ($item['category'] ?? ''));
+
+        if (Str::contains($name, ['tra sua', 'ca phe', 'nuoc', 'sinh to', 'tra '])) {
+            return 'thơm mát, dễ uống';
+        }
+        if (Str::contains($name, ['pho', 'bun', 'mi', 'hu tieu'])) {
+            return 'nóng hổi, đậm vị nước dùng';
+        }
+        if (Str::contains($name, ['com', 'cơm'])) {
+            return 'no bụng, tròn vị';
+        }
+        if (Str::contains($name, ['banh', 'flan', 'che'])) {
+            return 'ngọt nhẹ, dễ ăn';
+        }
+        if (Str::contains($name, ['goi cuon', 'salad', 'healthy'])) {
+            return 'thanh mát, nhẹ bụng';
+        }
+        if (Str::contains($category, ['do uong', 'nuoc'])) {
+            return 'giải khát, mát lạnh';
+        }
+
+        return 'đang sẵn bếp, giao nhanh';
+    }
+
+    private function formatPriceVnd(float $price): string
+    {
+        return number_format($price, 0, ',', '.') . 'đ';
+    }
+
+    private function buildSuggestionCards(\Illuminate\Support\Collection $items): string
+    {
+        return $items->map(function ($item) {
+            $card = json_encode([
+                'id' => (int) $item['id'],
+                'name' => (string) $item['name'],
+                'price' => (float) $item['price'],
+            ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+
+            return "[SUGGESTION_CARD]{$card}[/SUGGESTION_CARD]";
+        })->implode("\n");
+    }
+
     /**
      * Khớp món trong tin nhắn — tránh lỗi 1 ký tự (vd: "ê" khớp "phê" trong "Cà phê").
      */
     private function matchMenuProduct(string $normalized, array $availableMenu): ?array
     {
-        $text = trim($normalized);
+        $text = $this->removeVietnameseAccents(trim($normalized));
         if ($text === '') {
             return null;
         }
@@ -640,11 +874,14 @@ PROMPT;
             return null;
         }
 
-        // Tối thiểu 3 ký tự khi khớp "tên món chứa chuỗi user" — tránh "hi" khớp trong "chiên".
-        $minReverseLen = 3;
+        if ($this->detectRankingIntent($normalized) !== null) {
+            return null;
+        }
+
+        $minReverseLen = 4;
 
         foreach ($availableMenu as $item) {
-            $name = Str::lower((string) ($item['name'] ?? ''));
+            $name = $this->removeVietnameseAccents((string) ($item['name'] ?? ''));
             if ($name === '') {
                 continue;
             }
@@ -656,14 +893,18 @@ PROMPT;
             }
         }
 
+        $stopwords = $this->menuMatchStopwords();
         $tokens = array_values(array_filter(
             preg_split('/\s+/u', $text, -1, PREG_SPLIT_NO_EMPTY) ?: [],
-            static fn ($t) => mb_strlen((string) $t) >= 3
+            static fn ($t) => mb_strlen((string) $t) >= 4
         ));
 
         foreach ($tokens as $token) {
+            if (in_array($token, $stopwords, true)) {
+                continue;
+            }
             foreach ($availableMenu as $item) {
-                $name = Str::lower((string) ($item['name'] ?? ''));
+                $name = $this->removeVietnameseAccents((string) ($item['name'] ?? ''));
                 if ($name !== '' && Str::contains($name, $token)) {
                     return $item;
                 }
@@ -701,15 +942,20 @@ PROMPT;
             $address = trim($addressMatch[1]);
         }
 
-        $menuMatch = $this->matchMenuProduct($normalized, $availableMenu);
+        $menuMatch = $this->detectRankingIntent($normalized) === null
+            ? $this->matchMenuProduct($normalized, $availableMenu)
+            : null;
 
         return [
             'product' => is_array($menuMatch) ? [
                 'id' => $menuMatch['id'],
                 'name' => $menuMatch['name'],
                 'price' => $menuMatch['price'],
+                'category' => $menuMatch['category'] ?? '',
             ] : null,
+            'ranking_intent' => $this->detectRankingIntent($normalized),
             'quantity' => $quantity,
+            'preferences' => $this->detectPreferences($normalized),
             'special_requests' => array_values(array_unique($specialRequests)),
             'address' => $address,
         ];
@@ -824,7 +1070,17 @@ PROMPT;
             '/\bhnay\b/u' => 'hom nay',
             '/\bngon ko\b/u' => 'ngon khong',
             '/\bmon j\b/u' => 'mon gi',
+            '/\ban gi\b/u' => 'an gi',
+            '/\bdoi qua\b/u' => 'doi qua',
+            '/\bgoi y\b/u' => 'goi y',
+            '/\bhealthy\b/u' => 'healthy',
+            '/\bit calo\b/u' => 'it calo',
+            '/\ban vat\b/u' => 'an vat',
+            '/\btra sua\b/u' => 'tra sua',
+            '/\bca phe\b/u' => 'ca phe',
             '/\bko hanh\b/u' => 'khong hanh',
+            '/\bnguoi ta\b/u' => 'nguoi ta',
+            '/\bcho minh\b/u' => 'cho minh',
         ];
 
         foreach ($replacements as $pattern => $replacement) {
@@ -955,7 +1211,7 @@ PROMPT;
         $textBody = trim((string) (preg_replace($pattern, '', $reply) ?? $reply));
         $fallbackUsed = false;
         if (empty($validCards)) {
-            $picked = $this->pickGroundedSuggestions($menu, $userInput);
+            $picked = $this->pickGroundedSuggestions($menu, $userInput, $this->extractEntities($userInput, $menu->all()));
             $validCards = $picked->map(fn ($item) => [
                 'id' => (int) $item['id'],
                 'name' => (string) $item['name'],
@@ -964,9 +1220,12 @@ PROMPT;
             $fallbackUsed = true;
 
             if ($textBody !== '') {
-                $textBody .= "\n";
+                $hints = $this->buildAssistantHints($userInput, $this->extractEntities($userInput, $menu->all()), $menu->all());
+                $names = collect($hints['top_suggestions'] ?? [])->pluck('name')->take(3)->implode(', ');
+                if ($names !== '') {
+                    $textBody .= "\nDạ em gợi ý món đang có sẵn: {$names}.";
+                }
             }
-            $textBody .= 'Dạ em đang bám dữ liệu món thực tế của quán để gợi ý đúng món còn hàng cho mình ạ.';
         }
 
         $cardsText = collect($validCards)->take(3)->map(function ($card) {
@@ -983,24 +1242,77 @@ PROMPT;
         ];
     }
 
-    private function pickGroundedSuggestions(\Illuminate\Support\Collection $menu, string $userInput): \Illuminate\Support\Collection
+    private function pickGroundedSuggestions(\Illuminate\Support\Collection $menu, string $userInput, array $entities = []): \Illuminate\Support\Collection
     {
-        $text = Str::lower($userInput);
-        $filtered = $menu;
-
-        if (Str::contains($text, ['cafe', 'ca phe', 'diem tam', 'sang'])) {
-            $filtered = $menu->filter(fn ($item) => Str::contains(Str::lower((string) $item['name']), ['ca phe', 'tra', 'banh', 'mi']));
-        } elseif (Str::contains($text, ['trua', 'com', 'bun', 'pho', 'no'])) {
-            $filtered = $menu->filter(fn ($item) => Str::contains(Str::lower((string) $item['name']), ['com', 'bun', 'pho']));
-        } elseif (Str::contains($text, ['chieu', 'toi', 'an vat', 'tra sua', 'lau'])) {
-            $filtered = $menu->filter(fn ($item) => Str::contains(Str::lower((string) $item['name']), ['tra sua', 'an vat', 'lau', 'nuoc', 'banh']));
+        $ranking = $entities['ranking_intent'] ?? $this->detectRankingIntent($userInput);
+        if (is_array($ranking) && !empty($ranking['type'])) {
+            return $this->applyRankingIntent($menu, $ranking);
         }
 
-        if ($filtered->isEmpty()) {
-            $filtered = $menu;
+        $text = $this->removeVietnameseAccents(Str::lower($userInput));
+        $prefs = $entities['preferences'] ?? $this->detectPreferences($text);
+        $stopwords = $this->menuMatchStopwords();
+
+        $scored = $menu->map(function ($item) use ($text, $prefs, $entities, $stopwords) {
+            $score = 0;
+            $name = $this->removeVietnameseAccents(Str::lower((string) ($item['name'] ?? '')));
+            $category = $this->removeVietnameseAccents(Str::lower((string) ($item['category'] ?? '')));
+            $tags = collect($item['tags'] ?? [])->map(fn ($t) => $this->removeVietnameseAccents(Str::lower((string) $t)))->all();
+
+            if (Str::contains($text, ['cafe', 'ca phe', 'diem tam', 'sang']) && Str::contains($name, ['ca phe', 'tra', 'banh', 'mi'])) {
+                $score += 4;
+            }
+            if (Str::contains($text, ['trua', 'com', 'bun', 'pho', 'no']) && Str::contains($name, ['com', 'bun', 'pho', 'mi'])) {
+                $score += 4;
+            }
+            if (Str::contains($text, ['chieu', 'toi', 'an vat', 'tra sua', 'lau']) && Str::contains($name, ['tra sua', 'an vat', 'lau', 'nuoc', 'banh'])) {
+                $score += 4;
+            }
+
+            foreach ($prefs as $pref) {
+                $p = $this->removeVietnameseAccents(Str::lower($pref));
+                if (Str::contains($p, 'healthy') && (Str::contains($name, ['goi', 'salad', 'healthy', 'rau']) || Str::contains($category, ['healthy', 'salad']))) {
+                    $score += 5;
+                }
+                if (Str::contains($p, 'do uong') && Str::contains($name, ['tra', 'ca phe', 'nuoc', 'sinh to'])) {
+                    $score += 5;
+                }
+                if (Str::contains($p, 'gia mem') && (float) ($item['price'] ?? 0) <= 50000) {
+                    $score += 4;
+                }
+                if (Str::contains($p, 'an vat') && Str::contains($name, ['nem', 'xiên', 'banh', 'khoai', 'ga ran'])) {
+                    $score += 4;
+                }
+            }
+
+            if (!empty($entities['product']['id']) && (int) $entities['product']['id'] === (int) ($item['id'] ?? 0)) {
+                $score += 10;
+            }
+
+            foreach (preg_split('/\s+/u', $text, -1, PREG_SPLIT_NO_EMPTY) ?: [] as $token) {
+                if (mb_strlen($token) < 4 || in_array($token, $stopwords, true)) {
+                    continue;
+                }
+                if (Str::contains($name, $token)) {
+                    $score += 2;
+                }
+            }
+
+            if (in_array('noi bat', $tags, true)) {
+                $score += 1;
+            }
+
+            return ['item' => $item, 'score' => $score];
+        });
+
+        $ranked = $scored->sortByDesc('score')->values();
+        $top = $ranked->filter(fn ($row) => $row['score'] > 0)->take(3);
+
+        if ($top->isNotEmpty()) {
+            return $top->pluck('item')->values();
         }
 
-        return $filtered->sortBy('price')->take(3)->values();
+        return $menu->sortBy('price')->take(3)->values();
     }
 
     private function calculateIntentScore(string $normalizedMessage, array $entities, array $handoff): array
