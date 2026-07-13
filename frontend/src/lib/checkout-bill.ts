@@ -2,6 +2,19 @@ import type { CartItem } from '@/store/useCartStore'
 import type { UserTier } from '@/types'
 import { TIER_DISCOUNTS, TIER_MIN_ORDER } from '@/types'
 
+export const MIN_DELIVERY_ORDER_AMOUNT = 100_000
+
+export function meetsMinDeliveryOrder(
+  subtotal: number,
+  min = MIN_DELIVERY_ORDER_AMOUNT,
+): boolean {
+  return subtotal >= min
+}
+
+export function minDeliveryOrderMessage(min = MIN_DELIVERY_ORDER_AMOUNT): string {
+  return `Đơn giao hàng tối thiểu ${min.toLocaleString('vi-VN')}₫ (chưa tính phí ship). Vui lòng thêm món để đủ giá trị đơn hàng.`
+}
+
 export type CheckoutBillLine = {
   id: string
   name: string

@@ -257,7 +257,7 @@ export default function Header() {
           </nav>
         </div>
 
-        <div className="flex items-center gap-2 rounded-full border border-white/40 bg-white/70 px-2 py-1 shadow-sm">
+        <div className="flex items-center gap-1.5 sm:gap-2 rounded-2xl border border-white/50 bg-white/60 p-1 shadow-sm backdrop-blur-sm">
           <LiveSearch scrolled={scrolled} />
 
           {/* Desktop/tablet: hiển thị nút tài khoản trên header */}
@@ -265,8 +265,13 @@ export default function Header() {
             <UserMenu />
           </div>
 
-          <button onClick={() => setCartOpen(true)} suppressHydrationWarning
-            className="group relative rounded-full p-2 text-slate-700 transition-all hover:bg-red-50">
+          <button
+            type="button"
+            data-cart-icon
+            onClick={() => setCartOpen(true)}
+            suppressHydrationWarning
+            className="group relative rounded-full p-2 text-slate-700 transition-all hover:bg-red-50"
+          >
             <ShoppingCart className="w-5 h-5 group-hover:text-[#ed2a2a]" />
             {isMounted && cartCount > 0 && (
               <span className="absolute -top-1 -right-1 min-w-[1.2rem] h-5 px-1 bg-[#ed2a2a] text-white text-[10px] font-black rounded-full flex items-center justify-center border-2 border-white">

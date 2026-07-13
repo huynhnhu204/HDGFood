@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { motion } from 'framer-motion'
 import { ShoppingCart, Star, Clock, Zap, Heart, Check, Plus } from 'lucide-react'
 import { useCartStore } from '@/store/useCartStore'
+import { triggerFlyToCartAnimation } from '@/lib/flyToCart'
 
 export interface FoodProduct {
   id: number
@@ -47,6 +48,7 @@ export default function FoodListCard({ product, index }: Props) {
       slug: product.slug,
       quantity: 1,
     })
+    triggerFlyToCartAnimation(product.image || '/placeholder.png', e.currentTarget as HTMLElement)
     setAdded(true)
     setTimeout(() => setAdded(false), 1800)
   }

@@ -149,6 +149,15 @@ class OmsService
                 }
             }
 
+            if (empty($tableNumber)) {
+                $deliveryRadius = app(DeliveryRadiusService::class);
+                try {
+                    $deliveryRadius->assertMinDeliveryOrder($subtotal);
+                } catch (\InvalidArgumentException $e) {
+                    abort(422, $e->getMessage());
+                }
+            }
+
             $shippingFee = $data['shipping_fee'] ?? 0;
             $totalPrice = max(0, $subtotal - $promotionDiscount - $tierDiscount - $voucherDiscount) + $shippingFee;
 
@@ -206,6 +215,17 @@ class OmsService
 
             $customerEmailSnapshot = ($user !== null && ! $user->isAdmin()) ? $user->email : null;
 
+            $deliveryDistanceKm = null;
+            if (! empty($data['delivery_latitude']) && ! empty($data['delivery_longitude']) && empty($tableNumber)) {
+                $deliveryRadius = app(DeliveryRadiusService::class);
+                $deliveryDistanceKm = $deliveryRadius->haversineKm(
+                    $deliveryRadius->getStoreLocation()['latitude'],
+                    $deliveryRadius->getStoreLocation()['longitude'],
+                    (float) $data['delivery_latitude'],
+                    (float) $data['delivery_longitude']
+                );
+            }
+
             $order = Order::create([
                 'user_id'            => $user?->id,
                 'order_number'       => $orderNumber,
@@ -213,6 +233,13 @@ class OmsService
                 'delivery_phone'     => $data['customer_phone'],
                 'customer_email_snapshot' => $customerEmailSnapshot,
                 'shipping_address'   => $data['table_number'] ?? $data['shipping_address'] ?? null,
+                'delivery_address'   => empty($tableNumber) ? ($data['shipping_address'] ?? null) : null,
+                'delivery_province_code' => $data['delivery_province_code'] ?? null,
+                'delivery_district_code' => $data['delivery_district_code'] ?? null,
+                'delivery_ward_code'     => $data['delivery_ward_code'] ?? null,
+                'delivery_latitude'  => empty($tableNumber) ? ($data['delivery_latitude'] ?? null) : null,
+                'delivery_longitude' => empty($tableNumber) ? ($data['delivery_longitude'] ?? null) : null,
+                'delivery_distance_km' => $deliveryDistanceKm,
                 'payment_method'     => $data['payment_method'] ?? null,
                 'shipping_fee'       => $shippingFee,
                 'notes'              => $data['note'] ?? null,

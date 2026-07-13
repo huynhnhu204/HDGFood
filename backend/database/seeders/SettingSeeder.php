@@ -22,6 +22,10 @@ class SettingSeeder extends Seeder
             ['key' => 'hotline',          'value' => '1900 1234',                          'group' => 'contact'],
             ['key' => 'email',            'value' => 'contact@HDGfood.vn',                 'group' => 'contact'],
             ['key' => 'address',          'value' => '123 Nguyễn Huệ, Quận 1, TP.HCM',   'group' => 'contact'],
+            ['key' => 'store_latitude',   'value' => '10.776889',                        'group' => 'contact'],
+            ['key' => 'store_longitude',  'value' => '106.700806',                       'group' => 'contact'],
+            ['key' => 'delivery_radius_km','value' => '25',                              'group' => 'contact'],
+            ['key' => 'delivery_min_order_amount','value' => '100000',                   'group' => 'contact'],
             ['key' => 'google_maps_embed','value' => '',                                   'group' => 'contact'],
             ['key' => 'working_hours',    'value' => '08:00 - 22:00 (Thứ 2 - CN)',        'group' => 'contact'],
 

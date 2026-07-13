@@ -7,6 +7,7 @@ import { Heart, ShoppingCart, Star, Flame, Sparkles } from 'lucide-react'
 import { useCartStore } from '@/store/useCartStore'
 import { useAuthStore } from '@/store/authStore'
 import { profileService } from '@/services/profile.service'
+import { triggerFlyToCartAnimation } from '@/lib/flyToCart'
 import { toast } from 'sonner'
 
 // --- Common Product Type ---
@@ -117,50 +118,11 @@ export default function ProductCard({
       quantity: 1
     })
 
-    // 2. Flying Image Animation (Wow Effect)
-    const target = e.currentTarget as HTMLElement
-    const rect = target.getBoundingClientRect()
-    
-    // Tạo phần tử bay
-    const ghost = document.createElement('img')
-    ghost.src = product.image || '/placeholder.png'
-    ghost.style.position = 'fixed'
-    ghost.style.width = '50px'
-    ghost.style.height = '50px'
-    ghost.style.borderRadius = '50%'
-    ghost.style.objectFit = 'cover'
-    ghost.style.left = `${rect.left}px`
-    ghost.style.top = `${rect.top}px`
-    ghost.style.zIndex = '9999'
-    ghost.style.transition = 'all 0.7s cubic-bezier(0.25, 1, 0.5, 1)'
-    ghost.style.boxShadow = '0 10px 25px rgba(237,42,42,0.5)'
-    document.body.appendChild(ghost)
-
-    // Xác định vị trí icon giỏ hàng trên Header (dựa trên icon lucide-shopping-cart đầu tiên)
-    const cartIcon = document.querySelector('.lucide-shopping-cart')
-    if (cartIcon) {
-      const cartRect = cartIcon.getBoundingClientRect()
-      setTimeout(() => {
-        ghost.style.left = `${cartRect.left}px`
-        ghost.style.top = `${cartRect.top}px`
-        ghost.style.width = '10px'
-        ghost.style.height = '10px'
-        ghost.style.opacity = '0.2'
-        ghost.style.transform = 'scale(0.5)'
-      }, 10) // Small delay để CSS tự apply transition
-    } else {
-       // Fallback bay lên góc trên phải
-       setTimeout(() => {
-          ghost.style.left = `calc(100vw - 50px)`
-          ghost.style.top = `20px`
-          ghost.style.opacity = '0'
-       }, 10)
-    }
-
-    // Dọn dẹp DOM sau khi bay xong
-    setTimeout(() => {
-      ghost.remove()
-    }, 700)
+    // 2. Flying image animation → icon giỏ hàng trên header
+    triggerFlyToCartAnimation(
+      product.image || '/placeholder.png',
+      e.currentTarget as HTMLElement
+    )
   }
 
   const handleToggleWishlist = async (e: React.MouseEvent) => {

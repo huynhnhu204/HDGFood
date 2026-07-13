@@ -58,3 +58,7 @@ yarn-error.log*
 
 # ===== Docs temp =====
 CLEANUP_PLAN.md
+
+# ===== Local tooling =====
+.venv-docx/
+.tmp-home/

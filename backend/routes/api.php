@@ -94,6 +94,8 @@ Route::get('/policies/{slug}', [PolicyController::class, 'showBySlug']);
 Route::post('/assistant/foodie-chat', [FoodieAssistantController::class, 'chat']);
 Route::post('/assistant/shipping/estimate', [FoodieAssistantController::class, 'estimateShipping']);
 Route::get('/public/settings', [\App\Http\Controllers\SettingController::class, 'publicStorefront']);
+Route::get('/public/delivery/config', [\App\Http\Controllers\DeliveryController::class, 'config']);
+Route::get('/public/delivery/check', [\App\Http\Controllers\DeliveryController::class, 'check']);
 Route::get('/public/payment-info', [\App\Http\Controllers\PaymentController::class, 'publicInfo']);
 Route::get('/public/orders/{order}/payment-qr', [\App\Http\Controllers\PaymentController::class, 'publicQr']);
 Route::post('/public/orders/{order}/claim-payment', [\App\Http\Controllers\PaymentController::class, 'claimPayment']);

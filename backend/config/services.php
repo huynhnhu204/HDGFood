@@ -39,5 +39,10 @@ return [
                 ? env('OPENAI_MODEL', 'gpt-4o-mini')
                 : env('GEMINI_MODEL', 'gemini-2.0-flash')
         ),
+        // Khi OpenAI lỗi (429, 5xx…), thử Gemini nếu có GEMINI_API_KEY
+        'fallback_provider' => strtolower((string) env('FOODIE_AI_FALLBACK_PROVIDER', 'gemini')),
+        'fallback_api_key' => env('FOODIE_AI_FALLBACK_API_KEY') ?: env('GEMINI_API_KEY'),
+        'fallback_base_url' => env('FOODIE_AI_FALLBACK_BASE_URL', 'https://generativelanguage.googleapis.com/v1beta'),
+        'fallback_model' => env('FOODIE_AI_FALLBACK_MODEL') ?: env('GEMINI_MODEL', 'gemini-2.0-flash'),
     ],
 ];

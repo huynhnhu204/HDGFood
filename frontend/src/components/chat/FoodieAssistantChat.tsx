@@ -282,7 +282,10 @@ export default function FoodieAssistantChat() {
       }
       setShippingPreview(result.shipping_estimate || null)
       if (result.ai_status && !result.ai_status.ok && result.ai_status.message) {
-        toast.info(result.ai_status.message)
+        const hasUsefulReply = parsed.cards.length > 0 || displayText.length > 30
+        if (!hasUsefulReply) {
+          toast.info(result.ai_status.message)
+        }
       }
     } catch (e) {
       setReplyHud(null)

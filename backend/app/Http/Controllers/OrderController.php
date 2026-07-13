@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Resources\OrderResource;
 use App\Models\Order;
+use App\Services\DeliveryRadiusService;
 use App\Services\OmsService;
 use App\Support\PaymentSupport;
 use Illuminate\Http\Request;
@@ -12,10 +13,12 @@ use App\Models\User;
 class OrderController extends Controller
 {
     private OmsService $omsService;
+    private DeliveryRadiusService $deliveryRadius;
 
-    public function __construct(OmsService $omsService)
+    public function __construct(OmsService $omsService, DeliveryRadiusService $deliveryRadius)
     {
         $this->omsService = $omsService;
+        $this->deliveryRadius = $deliveryRadius;
     }
 
     public function index(Request $request)
@@ -112,6 +115,11 @@ class OrderController extends Controller
             'table_number'         => 'nullable|string|max:50',
             'table_session_token'  => 'nullable|string|max:120',
             'shipping_address'     => 'nullable|string|max:500',
+            'delivery_latitude'  => 'nullable|numeric|between:-90,90',
+            'delivery_longitude' => 'nullable|numeric|between:-180,180',
+            'delivery_province_code' => 'nullable|string|max:50',
+            'delivery_district_code' => 'nullable|string|max:50',
+            'delivery_ward_code'     => 'nullable|string|max:50',
             'shipping_method'      => 'nullable|string|max:50',
             'payment_method'       => 'nullable|string|max:50',
             'shipping_fee'         => 'nullable|numeric|min:0',
@@ -127,6 +135,24 @@ class OrderController extends Controller
             }
             if ($type === 'product' && empty($item['product_id'])) {
                 return response()->json(['message' => "Dòng hàng #" . ($idx + 1) . ' thiếu product_id.'], 422);
+            }
+        }
+
+        $isDineIn = ! empty($data['table_number']);
+        if (! $isDineIn) {
+            if (empty($data['shipping_address'])) {
+                return response()->json(['message' => 'Vui lòng nhập địa chỉ giao hàng.'], 422);
+            }
+            if (! isset($data['delivery_latitude'], $data['delivery_longitude'])) {
+                return response()->json(['message' => 'Vui lòng ghim vị trí giao hàng trên bản đồ.'], 422);
+            }
+            try {
+                $this->deliveryRadius->assertWithinRadius(
+                    (float) $data['delivery_latitude'],
+                    (float) $data['delivery_longitude']
+                );
+            } catch (\InvalidArgumentException $e) {
+                return response()->json(['message' => $e->getMessage()], 422);
             }
         }
 

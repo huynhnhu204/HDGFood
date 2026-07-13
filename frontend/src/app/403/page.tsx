@@ -25,7 +25,7 @@ export default function ForbiddenPage() {
         </div>
 
         <div className="space-y-4">
-           <h1 className="text-4xl font-black text-slate-800 tracking-tighter leading-none">Rất tiếc, <br/> <span className="text-[#ed2a2a]">Bố đã bị cấm!</span></h1>
+           <h1 className="text-4xl font-black text-slate-800 tracking-tighter leading-none">Rất tiếc, <br/> <span className="text-[#ed2a2a]">bạn không có quyền truy cập</span></h1>
            <p className="text-sm font-bold text-slate-400 uppercase tracking-widest leading-relaxed">
               Bạn không có quyền truy cập vào khu vực bí mật này. <br/> Vui lòng quay lại nơi thuộc về bạn.
            </p>
